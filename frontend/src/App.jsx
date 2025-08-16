@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Descope } from '@descope/react-sdk'
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
@@ -25,6 +26,10 @@ function App() {
           Edit <code>src/App.jsx</code> and save to test HMR
         </p>
       </div>
+      <Descope
+        flowId="sign-up-or-in" // Use the flow ID from your Descope dashboard
+        theme="light"
+      />
       <p className="read-the-docs">
         Click on the Vite and React logos to learn more
       </p>
