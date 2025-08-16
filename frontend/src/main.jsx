@@ -1,15 +1,16 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import { DescopeProvider } from '@descope/react-sdk'
-import './index.css'
-import App from './App.jsx'
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { AuthProvider } from '@descope/react-sdk';
 
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <DescopeProvider
-      projectId="prodigious-mustard-fermi" // Replace with your actual Project ID
-    >
+import App from './App';
+import './index.css';
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+
+root.render(
+  <React.StrictMode>
+    <AuthProvider projectId='P31EeCcDPtwQGyi9wbZk4ZLKKE5a'>
       <App />
-    </DescopeProvider>
-  </StrictMode>,
-)
+    </AuthProvider>
+  </React.StrictMode>
+);

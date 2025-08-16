@@ -1,39 +1,24 @@
-import { useState } from 'react'
-import { Descope } from '@descope/react-sdk'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
+import Signup from './pages/signup.jsx'
+import React from 'react'
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <BrowserRouter>
+      <nav className="bg-gradient-to-r from-indigo-900 via-gray-900 to-black p-4 flex justify-center shadow-lg">
+        <Link
+          to="/signup"
+          className="text-indigo-200 font-semibold px-6 py-2 rounded-xl hover:bg-indigo-700 hover:text-white transition-all duration-200 shadow-md"
+        >
+          Signup
+        </Link>
+      </nav>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 via-indigo-900 to-black">
+        <Routes>
+          <Route path="/signup" element={<Signup />} />
+        </Routes>
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <Descope
-        flowId="sign-up-or-in" // Use the flow ID from your Descope dashboard
-        theme="light"
-      />
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    </BrowserRouter>
   )
 }
 
