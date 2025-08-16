@@ -9,7 +9,10 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 
 root.render(
   <React.StrictMode>
-    <AuthProvider projectId='P31EeCcDPtwQGyi9wbZk4ZLKKE5a'>
+    <AuthProvider
+      projectId='P31EeCcDPtwQGyi9wbZk4ZLKKE5a'
+      storageType='local' // or 'session' or 'cookie'
+    >
       <App />
     </AuthProvider>
   </React.StrictMode>
