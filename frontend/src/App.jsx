@@ -5,15 +5,15 @@ import React from 'react'
 function App() {
   return (
     <BrowserRouter>
-      <nav className="bg-gradient-to-r from-indigo-900 via-gray-900 to-black p-4 flex justify-center shadow-lg">
+      <nav className="bg-neutral-950 border-b border-neutral-800 px-6 py-4 flex justify-center">
         <Link
           to="/signup"
-          className="text-indigo-200 font-semibold px-6 py-2 rounded-xl hover:bg-indigo-700 hover:text-white transition-all duration-200 shadow-md"
+          className="text-gray-100 font-semibold px-6 py-2 rounded-lg hover:bg-neutral-900 transition"
         >
           Signup
         </Link>
       </nav>
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 via-indigo-900 to-black">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-black">
         <Routes>
           <Route path="/signup" element={<Signup />} />
         </Routes>
