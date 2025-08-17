@@ -4,6 +4,7 @@ import { getInitials } from "../utils/helpers";
 
 export default function ProfileModal({ showProfile, setShowProfile, user }) {
     if (!showProfile) return null;
+    console.log("ProfileModal user:", user);
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

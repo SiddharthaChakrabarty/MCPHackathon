@@ -10,11 +10,15 @@ export default function ConnectPanel() {
 
     async function connectProvider(providerId) {
         try {
-            // This will redirect the user to the provider consent screen and
-            // Descope will manage the redirect back automatically.
-            await sdk.outbound.connect(providerId, {
-                redirectURL: window.location.href // Ensure redirect back to current page after consent
-            });
+            // Call outbound.connect and get the result
+            console.log('Redirect URL sent:', window.location.href);
+            const result = await sdk.outbound.connect(providerId, { redirectURL: window.location.href });
+            console.log('Outbound connect result:', result);
+            if (result && result.data && result.data.url) {
+                window.location.href = result.data.url;
+            } else {
+                console.error("No URL returned from outbound.connect");
+            }
         } catch (e) {
             console.error("connect error:", e);
             alert("Connect failed: " + e.message);
@@ -30,7 +34,7 @@ export default function ConnectPanel() {
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ loginId: user?.email }),
+                body: JSON.stringify({ loginId: user?.userId }),
             });
             const data = await res.json();
             setAnalysis(data);
@@ -54,7 +58,7 @@ export default function ConnectPanel() {
                     Connect GitHub
                 </button>
                 <button
-                    onClick={() => connectProvider("google")}
+                    onClick={() => connectProvider("google-calendar")}
                     className="px-3 py-2 rounded bg-gray-800 hover:bg-gray-700"
                 >
                     Connect Google (Calendar / YouTube)
