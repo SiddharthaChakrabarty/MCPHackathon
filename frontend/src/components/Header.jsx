@@ -39,6 +39,7 @@ export default function Header({ isAuthenticated, user, setShowFlow, setShowProf
                     )}
                 </div>
             </div>
+
         </header>
     );
 }

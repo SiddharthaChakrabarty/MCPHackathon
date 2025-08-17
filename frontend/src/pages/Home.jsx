@@ -4,6 +4,7 @@ import { useSession, useUser, useDescope, Descope } from "@descope/react-sdk";
 import Header from "../components/Header";
 import ProfileModal from "../components/ProfileModal";
 import AuthModal from "../components/AuthModal";
+import ConnectPanel from "../components/ConnectPanel";
 
 function AuthenticatedAppContent() {
     const { isAuthenticated, isSessionLoading } = useSession();
@@ -36,6 +37,9 @@ function AuthenticatedAppContent() {
                         Welcome, {user?.name || user?.email}
                     </h3>
                     <p className="text-sm text-gray-300">{user?.email}</p>
+                    <div className="mt-6">
+                        <ConnectPanel />
+                    </div>
                 </motion.div>
             </div>
         );
