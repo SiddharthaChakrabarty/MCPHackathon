@@ -60,11 +60,25 @@ def github_analyze():
         "User-Agent": "descope-demo-app"
     }
 
+    # Fetch user profile
+    user_resp = requests.get("https://api.github.com/user", headers=headers)
+    if user_resp.status_code != 200:
+        return jsonify({"error": "github user request failed", "detail": user_resp.text}), 500
+    user_data = user_resp.json()
+
+    # Fetch organizations
+    orgs_resp = requests.get("https://api.github.com/user/orgs", headers=headers)
+    orgs = orgs_resp.json() if orgs_resp.status_code == 200 else []
+
+    # Fetch gists
+    gists_resp = requests.get("https://api.github.com/gists", headers=headers)
+    gists = gists_resp.json() if gists_resp.status_code == 200 else []
+
     # Fetch repos
     repos = []
     page = 1
     while True:
-        r = requests.get("https://api.github.com/user/repos", headers=headers, params={"per_page": 100, "page": page})
+        r = requests.get("https://api.github.com/user/repos", headers=headers, params={"per_page": 50, "page": page})
         if r.status_code != 200:
             return jsonify({"error": "github request failed", "detail": r.text}), 500
         page_data = r.json()
@@ -73,9 +87,86 @@ def github_analyze():
         repos.extend(page_data)
         page += 1
 
+    repo_infos = []
+    for repo in repos:
+        repo_info = {
+            "name": repo["name"],
+            "url": repo["html_url"],
+            "description": repo.get("description"),
+            "language": repo.get("language"),
+            "stars": repo.get("stargazers_count"),
+            "forks": repo.get("forks_count"),
+            "open_issues": repo.get("open_issues_count"),
+            "created_at": repo.get("created_at"),
+            "updated_at": repo.get("updated_at"),
+            "private": repo.get("private"),
+            "topics": [],
+            "license": repo.get("license", {}).get("name") if repo.get("license") else None,
+            "contributors": [],
+            "releases": [],
+            "branches": [],
+            "tags": [],
+            "languages": {},
+            "readme": "",
+            "pull_requests": [],
+            "issues": [],
+        }
+        # Topics
+        topics_resp = requests.get(f"https://api.github.com/repos/{repo['owner']['login']}/{repo['name']}/topics", headers={**headers, "Accept": "application/vnd.github.mercy-preview+json"})
+        if topics_resp.status_code == 200:
+            repo_info["topics"] = topics_resp.json().get("names", [])
+        # Contributors
+        contributors_resp = requests.get(f"https://api.github.com/repos/{repo['owner']['login']}/{repo['name']}/contributors", headers=headers)
+        if contributors_resp.status_code == 200:
+            repo_info["contributors"] = contributors_resp.json()
+        # Releases
+        releases_resp = requests.get(f"https://api.github.com/repos/{repo['owner']['login']}/{repo['name']}/releases", headers=headers)
+        if releases_resp.status_code == 200:
+            repo_info["releases"] = releases_resp.json()
+        # Branches
+        branches_resp = requests.get(f"https://api.github.com/repos/{repo['owner']['login']}/{repo['name']}/branches", headers=headers)
+        if branches_resp.status_code == 200:
+            repo_info["branches"] = branches_resp.json()
+        # Tags
+        tags_resp = requests.get(f"https://api.github.com/repos/{repo['owner']['login']}/{repo['name']}/tags", headers=headers)
+        if tags_resp.status_code == 200:
+            repo_info["tags"] = tags_resp.json()
+        # Languages breakdown
+        lang_resp = requests.get(repo["languages_url"], headers=headers)
+        repo_info["languages"] = lang_resp.json() if lang_resp.status_code == 200 else {}
+        # README
+        readme_resp = requests.get(f"https://api.github.com/repos/{repo['owner']['login']}/{repo['name']}/readme", headers=headers)
+        if readme_resp.status_code == 200:
+            readme_data = readme_resp.json()
+            repo_info["readme"] = readme_data.get("content", "")
+        # Pull Requests
+        pr_resp = requests.get(f"https://api.github.com/repos/{repo['owner']['login']}/{repo['name']}/pulls", headers=headers)
+        if pr_resp.status_code == 200:
+            repo_info["pull_requests"] = pr_resp.json()
+        # Issues
+        issues_resp = requests.get(f"https://api.github.com/repos/{repo['owner']['login']}/{repo['name']}/issues", headers=headers)
+        if issues_resp.status_code == 200:
+            repo_info["issues"] = issues_resp.json()
+        repo_infos.append(repo_info)
+
     return jsonify({
-        "repo_count": len(repos),
-        "repos": [{"name": r["name"], "url": r["html_url"]} for r in repos]
+        "profile": {
+            "login": user_data.get("login"),
+            "name": user_data.get("name"),
+            "avatar_url": user_data.get("avatar_url"),
+            "bio": user_data.get("bio"),
+            "email": user_data.get("email"),
+            "location": user_data.get("location"),
+            "company": user_data.get("company"),
+            "followers": user_data.get("followers"),
+            "following": user_data.get("following"),
+            "public_repos": user_data.get("public_repos"),
+            "created_at": user_data.get("created_at"),
+        },
+        "organizations": orgs,
+        "gists": gists,
+        "repo_count": len(repo_infos),
+        "repos": repo_infos
     })
 
 # -------------------------
