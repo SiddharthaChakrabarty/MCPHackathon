@@ -1,39 +1,51 @@
 import React, { useEffect, useState } from "react";
 import { useUser } from "@descope/react-sdk";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+
+function RepoCard({ repo }) {
+    return (
+        <div className="relative group bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-xl shadow-xl p-6 mb-8 border border-gray-800 overflow-hidden transition-transform duration-300 hover:scale-105">
+            <div className="absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-full opacity-20 group-hover:opacity-30 transition"></div>
+            <div className="absolute -bottom-10 -left-10 w-24 h-24 bg-cyan-500 rounded-full opacity-10 group-hover:opacity-20 transition"></div>
+            <h2 className="text-xl font-bold text-indigo-400 mb-2">{repo.name}</h2>
+            <p className="text-gray-200 text-base">
+                {repo.description || <span className="italic text-gray-400">No description available.</span>}
+            </p>
+        </div>
+    );
+}
 
 export default function GithubDetails() {
     const { user } = useUser();
-    const location = useLocation();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
-    const [analysis, setAnalysis] = useState(location.state?.analysis || null);
+    const [repos, setRepos] = useState([]);
 
     useEffect(() => {
-        async function fetchAnalysis() {
+        async function fetchRepos() {
             setLoading(true);
             try {
-                const res = await fetch("http://localhost:5000/api/github/analyze", {
+                const res = await fetch("http://localhost:5000/api/github/minimal", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ loginId: user?.userId }),
                 });
                 const data = await res.json();
-                setAnalysis(data);
+                setRepos(data.repos || []);
             } catch (e) {
-                setAnalysis(null);
+                setRepos([]);
             } finally {
                 setLoading(false);
             }
         }
-        if (!analysis && user?.userId) fetchAnalysis();
-    }, [user, analysis]);
+        if (user?.userId) fetchRepos();
+    }, [user]);
 
     return (
-        <div className="min-h-screen bg-[radial-gradient(ellipse_at_top_right,_#0b0b0b,_#050505)] text-white relative">
-            {/* decorative background */}
+        <div className="min-h-screen bg-black text-white relative">
+            {/* Decorative circles */}
             <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                <svg className="absolute -right-40 -top-28 opacity-20" width="600" height="600" viewBox="0 0 600 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <svg className="absolute -right-40 -top-28 opacity-20" width="600" height="600" viewBox="0 0 600 600" fill="none">
                     <defs>
                         <linearGradient id="g1" x1="0" x2="1">
                             <stop offset="0%" stopColor="#7c3aed" />
@@ -42,110 +54,28 @@ export default function GithubDetails() {
                     </defs>
                     <circle cx="300" cy="300" r="200" fill="url(#g1)" />
                 </svg>
-                <svg className="absolute -left-40 bottom-0 opacity-10" width="500" height="500" viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <svg className="absolute -left-40 bottom-0 opacity-10" width="500" height="500" viewBox="0 0 500 500" fill="none">
                     <circle cx="250" cy="250" r="200" fill="#06b6d4" />
                 </svg>
             </div>
-            <main className="relative z-10 flex items-center justify-center min-h-[80vh] px-6">
-                <div className="max-w-5xl w-full bg-gradient-to-br from-white/3 to-white/6 backdrop-blur rounded-3xl p-8 border border-white/6 shadow-2xl mt-8">
+            <main className="relative z-10 flex flex-col items-center min-h-[80vh] px-6">
+                <div className="max-w-3xl w-full mt-16">
                     <button
                         onClick={() => navigate(-1)}
-                        className="mb-4 px-4 py-2 rounded bg-gray-800 text-white hover:bg-gray-700"
+                        className="mb-8 px-4 py-2 rounded bg-gray-800 text-white hover:bg-gray-700 transition"
                     >
                         ← Back
                     </button>
-                    {loading && <div className="p-8 text-white">Loading GitHub details...</div>}
-                    {!loading && !analysis && <div className="p-8 text-red-400">Failed to load GitHub details.</div>}
-                    {!loading && analysis && (
-                        <>
-                            <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-                                <img src={analysis.profile.avatar_url} alt="avatar" className="w-12 h-12 rounded-full border border-white/20" />
-                                {analysis.profile.name || analysis.profile.login}
-                            </h2>
-                            <div className="grid grid-cols-2 gap-4 mb-6 text-gray-200">
-                                <div><b>Username:</b> {analysis.profile.login}</div>
-                                <div><b>Email:</b> {analysis.profile.email}</div>
-                                <div><b>Location:</b> {analysis.profile.location}</div>
-                                <div><b>Company:</b> {analysis.profile.company}</div>
-                                <div><b>Followers:</b> {analysis.profile.followers}</div>
-                                <div><b>Following:</b> {analysis.profile.following}</div>
-                                <div><b>Public Repos:</b> {analysis.profile.public_repos}</div>
-                                <div><b>Joined:</b> {new Date(analysis.profile.created_at).toLocaleDateString()}</div>
-                                <div className="col-span-2"><b>Bio:</b> {analysis.profile.bio}</div>
-                            </div>
-                            <h3 className="text-xl font-semibold text-white mb-2">Organizations</h3>
-                            <ul className="mb-6 text-gray-300">
-                                {analysis.organizations.map(org => (
-                                    <li key={org.id}>{org.login}</li>
-                                ))}
-                                {analysis.organizations.length === 0 && <li>No organizations found.</li>}
-                            </ul>
-                            <h3 className="text-xl font-semibold text-white mb-2">Gists</h3>
-                            <ul className="mb-6 text-gray-300">
-                                {analysis.gists.map(gist => (
-                                    <li key={gist.id}>
-                                        <a href={gist.html_url} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">{gist.description || gist.id}</a>
-                                    </li>
-                                ))}
-                                {analysis.gists.length === 0 && <li>No gists found.</li>}
-                            </ul>
-                            <h3 className="text-xl font-semibold text-white mb-2">Repositories ({analysis.repos.length})</h3>
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full text-xs text-gray-300">
-                                    <thead>
-                                        <tr className="border-b border-white/10">
-                                            <th className="text-left py-1 px-2">Name</th>
-                                            <th className="text-left py-1 px-2">Description</th>
-                                            <th className="text-left py-1 px-2">Language</th>
-                                            <th className="text-left py-1 px-2">Stars</th>
-                                            <th className="text-left py-1 px-2">Forks</th>
-                                            <th className="text-left py-1 px-2">Topics</th>
-                                            <th className="text-left py-1 px-2">License</th>
-                                            <th className="text-left py-1 px-2">Contributors</th>
-                                            <th className="text-left py-1 px-2">Releases</th>
-                                            <th className="text-left py-1 px-2">Branches</th>
-                                            <th className="text-left py-1 px-2">Tags</th>
-                                            <th className="text-left py-1 px-2">Languages Breakdown</th>
-                                            <th className="text-left py-1 px-2">Pull Requests</th>
-                                            <th className="text-left py-1 px-2">Issues</th>
-                                            <th className="text-left py-1 px-2">Private</th>
-                                            <th className="text-left py-1 px-2">Created</th>
-                                            <th className="text-left py-1 px-2">Updated</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {analysis.repos.map((repo) => (
-                                            <tr key={repo.url} className="border-b border-white/5 hover:bg-white/5">
-                                                <td className="py-1 px-2">
-                                                    <a href={repo.url} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline font-semibold">{repo.name}</a>
-                                                </td>
-                                                <td className="py-1 px-2">{repo.description}</td>
-                                                <td className="py-1 px-2">{repo.language}</td>
-                                                <td className="py-1 px-2">{repo.stars}</td>
-                                                <td className="py-1 px-2">{repo.forks}</td>
-                                                <td className="py-1 px-2">{repo.topics?.join(", ")}</td>
-                                                <td className="py-1 px-2">{repo.license}</td>
-                                                <td className="py-1 px-2">{repo.contributors?.length}</td>
-                                                <td className="py-1 px-2">{repo.releases?.length}</td>
-                                                <td className="py-1 px-2">{repo.branches?.length}</td>
-                                                <td className="py-1 px-2">{repo.tags?.length}</td>
-                                                <td className="py-1 px-2">
-                                                    {repo.languages && Object.entries(repo.languages).map(([lang, val]) => (
-                                                        <span key={lang}>{lang}: {val} </span>
-                                                    ))}
-                                                </td>
-                                                <td className="py-1 px-2">{repo.pull_requests?.length}</td>
-                                                <td className="py-1 px-2">{repo.issues?.length}</td>
-                                                <td className="py-1 px-2">{repo.private ? "Yes" : "No"}</td>
-                                                <td className="py-1 px-2">{new Date(repo.created_at).toLocaleDateString()}</td>
-                                                <td className="py-1 px-2">{new Date(repo.updated_at).toLocaleDateString()}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </>
+                    <h1 className="text-3xl font-bold text-white mb-8 text-center">Your GitHub Repositories</h1>
+                    {loading && <div className="p-8 text-white">Loading repositories...</div>}
+                    {!loading && repos.length === 0 && (
+                        <div className="p-8 text-gray-400 text-center">No repositories found.</div>
                     )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {repos.map((repo) => (
+                            <RepoCard key={repo.name} repo={repo} />
+                        ))}
+                    </div>
                 </div>
             </main>
         </div>
