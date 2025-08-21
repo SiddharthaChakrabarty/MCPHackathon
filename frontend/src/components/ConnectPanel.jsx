@@ -2,7 +2,6 @@
 import React, { useState } from "react";
 import { useDescope, useUser } from "@descope/react-sdk";
 import { useNavigate } from "react-router-dom";
-import AiAnalyzeButton from "./AiAnalyzeButton";
 
 export default function ConnectPanel() {
     const sdk = useDescope();
@@ -27,7 +26,7 @@ export default function ConnectPanel() {
     async function runGithubAnalysis() {
         setLoading(true);
         try {
-            const res = await fetch("http://localhost:5000/api/github/analyze", {
+            const res = await fetch("http://localhost:5000/api/github/minimal", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -69,7 +68,6 @@ export default function ConnectPanel() {
                 >
                     {loading ? "Analyzing…" : "Analyze my GitHub repositories"}
                 </button>
-                <AiAnalyzeButton />
             </div>
 
         </div>

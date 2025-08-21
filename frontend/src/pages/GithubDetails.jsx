@@ -2,17 +2,10 @@ import React, { useEffect, useState } from "react";
 import { useUser } from "@descope/react-sdk";
 import { useNavigate } from "react-router-dom";
 
-function RepoCard({ repo }) {
-    return (
-        <div className="relative group bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-xl shadow-xl p-6 mb-8 border border-gray-800 overflow-hidden transition-transform duration-300 hover:scale-105">
-            <div className="absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-full opacity-20 group-hover:opacity-30 transition"></div>
-            <div className="absolute -bottom-10 -left-10 w-24 h-24 bg-cyan-500 rounded-full opacity-10 group-hover:opacity-20 transition"></div>
-            <h2 className="text-xl font-bold text-indigo-400 mb-2">{repo.name}</h2>
-            <p className="text-gray-200 text-base">
-                {repo.description || <span className="italic text-gray-400">No description available.</span>}
-            </p>
-        </div>
-    );
+function formatDate(dateStr) {
+    if (!dateStr) return "Never";
+    const date = new Date(dateStr);
+    return date.toLocaleDateString() + " " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
 export default function GithubDetails() {
@@ -73,7 +66,23 @@ export default function GithubDetails() {
                     )}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         {repos.map((repo) => (
-                            <RepoCard key={repo.name} repo={repo} />
+                            <div
+                                key={repo.name}
+                                className="relative group bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-xl shadow-xl p-6 mb-8 border border-gray-800 overflow-hidden transition-transform duration-300 hover:scale-105 cursor-pointer"
+                                onClick={() => navigate(`/repo/${repo.name}`)}
+                            >
+                                <div className="absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-full opacity-20 group-hover:opacity-30 transition"></div>
+                                <div className="absolute -bottom-10 -left-10 w-24 h-24 bg-cyan-500 rounded-full opacity-10 group-hover:opacity-20 transition"></div>
+                                <a href={repo.url} target="_blank" rel="noopener noreferrer" className="text-xl font-bold text-indigo-400 mb-2 hover:underline">{repo.name}</a>
+                                <div className="flex items-center justify-between mt-4">
+                                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${repo.private ? "bg-red-700 text-white" : "bg-green-700 text-white"}`}>
+                                        {repo.private ? "Private" : "Public"}
+                                    </span>
+                                    <span className="text-xs text-gray-400">
+                                        Last commit: {formatDate(repo.last_commit)}
+                                    </span>
+                                </div>
+                            </div>
                         ))}
                     </div>
                 </div>
