@@ -249,6 +249,70 @@ def github_repo_details():
         "commits": commits
     })
 
+@app.route("/api/github/description-suggest", methods=["POST"])
+def github_description_suggest():
+    body = request.get_json() or {}
+    login_id = body.get("loginId")
+    repo_name = body.get("repoName")
+    if not login_id or not repo_name:
+        return jsonify({"error": "loginId and repoName required"}), 400
+
+    try:
+        token = get_outbound_token("github", login_id)
+        access_token = token["accessToken"]
+    except Exception as e:
+        return jsonify({"error": "failed to retrieve github token", "detail": str(e)}), 500
+
+    headers = {
+        "Authorization": f"token {access_token}",
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "descope-demo-app"
+    }
+
+    user_resp = requests.get("https://api.github.com/user", headers=headers)
+    user_login = user_resp.json().get("login")
+
+    # Gather code files for Gemini analysis
+    tree_url = f"https://api.github.com/repos/{user_login}/{repo_name}/git/trees/main?recursive=1"
+    tree_resp = requests.get(tree_url, headers=headers)
+    tree = tree_resp.json().get("tree", []) if tree_resp.status_code == 200 else []
+    code_contents = []
+    for item in tree:
+        if item["type"] == "blob" and (
+            item["path"].endswith(".py") or item["path"].endswith(".js") or item["path"].endswith(".jsx") or item["path"].endswith(".ts") or item["path"].endswith(".tsx") or
+            item["path"].endswith(".java") or item["path"].endswith(".go") or item["path"].endswith(".rb") or item["path"].endswith(".php") or item["path"].endswith(".c") or
+            item["path"].endswith(".cpp") or item["path"].endswith(".cs") or item["path"].endswith(".html") or item["path"].endswith(".css") or item["path"].endswith(".md") or
+            item["path"].endswith(".sh")
+        ):
+            file_url = f"https://api.github.com/repos/{user_login}/{repo_name}/contents/{item['path']}"
+            file_resp = requests.get(file_url, headers=headers)
+            if file_resp.status_code == 200:
+                file_data = file_resp.json()
+                try:
+                    content = base64.b64decode(file_data.get("content", "")).decode("utf-8", errors="ignore")
+                    code_contents.append(f"File: {item['path']}\n{content[:1500]}")
+                except Exception:
+                    continue
+            if len(code_contents) >= 10:
+                break
+
+    prompt = f"""
+You are an expert software engineer. Given the following code files from a GitHub repository, write a concise (1-2 sentence) description of what this repository does and its main purpose.
+
+{chr(10).join(code_contents)}
+
+Description:
+"""
+    suggested = ""
+    try:
+        model = genai.GenerativeModel("gemini-2.0-flash")
+        response = model.generate_content(prompt)
+        suggested = response.text.strip()
+    except Exception as e:
+        suggested = "No description available."
+
+    return jsonify({"suggested": suggested})
+
 def gemini_make_youtube_queries(languages, frameworks, repo_name=None, repo_description=None, top_k=6):
     prompt = f"""
     You are an expert learning curator and software engineering teacher. The user has a GitHub repository. The most important languages are: {languages}. The main frameworks are: {frameworks}. The repository name is: {repo_name or 'unknown'}. Repo description: {repo_description or 'none'}.
