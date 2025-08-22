@@ -5,6 +5,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Line } from "react-chartjs-2";
 import { Chart, CategoryScale, LinearScale, PointElement, LineElement, TimeScale, Tooltip, Legend } from "chart.js";
 import 'chartjs-adapter-date-fns';
+import { motion } from "framer-motion";
 import YouTubePanel from "../components/YoutubePanel";
 import ConnectPanel from "../components/ConnectPanel";
 
@@ -19,6 +20,8 @@ export default function RepoDetails() {
     const [details, setDetails] = useState(null);
     const [descSuggestion, setDescSuggestion] = useState("");
     const [descLoading, setDescLoading] = useState(false);
+    const [collaborators, setCollaborators] = useState([]);
+    const [collabLoading, setCollabLoading] = useState(false);
 
     useEffect(() => {
         async function fetchDetails() {
@@ -52,6 +55,7 @@ export default function RepoDetails() {
     }, [user, repoName]);
 
     async function fetchDescriptionSuggestion() {
+        if (descLoading) return; // Prevent double trigger
         setDescLoading(true);
         try {
             const res = await fetch("http://localhost:5000/api/github/description-suggest", {
@@ -69,6 +73,7 @@ export default function RepoDetails() {
     }
 
     async function applyDescription() {
+        if (descLoading) return; // Prevent double trigger
         setDescLoading(true);
         try {
             await fetch("http://localhost:5000/api/github/description-apply", {
@@ -84,6 +89,27 @@ export default function RepoDetails() {
             setDescLoading(false);
         }
     }
+
+    // Fetch collaborators
+    useEffect(() => {
+        async function fetchCollaborators() {
+            setCollabLoading(true);
+            try {
+                const res = await fetch("http://localhost:5000/api/github/repo/collaborators", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ loginId: user?.userId, repoName }),
+                });
+                const data = await res.json();
+                setCollaborators(data.collaborators || []);
+            } catch (e) {
+                setCollaborators([]);
+            } finally {
+                setCollabLoading(false);
+            }
+        }
+        if (user?.userId && repoName) fetchCollaborators();
+    }, [user, repoName]);
 
     // Prepare commit timeline data
     const commitDates = details?.commits?.map(c => c.date).filter(Boolean) || [];
@@ -111,7 +137,7 @@ export default function RepoDetails() {
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-black text-gray-100">
-            {/* top header */}
+            {/* Top header */}
             <header className="w-full border-b border-gray-800/60 bg-gradient-to-b from-transparent to-black/40 backdrop-blur sticky top-0 z-20">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-4">
@@ -130,7 +156,12 @@ export default function RepoDetails() {
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <section className="lg:col-span-2">
-                        <div className="rounded-2xl overflow-hidden border border-gray-800/60 p-8 shadow-xl relative bg-gradient-to-br from-gray-900/60 to-gray-800/60 mb-8">
+                        <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.6 }}
+                            className="rounded-2xl overflow-hidden border border-gray-800/60 p-8 shadow-xl relative bg-gradient-to-br from-gray-900/60 to-gray-800/60 mb-8"
+                        >
                             <div className="absolute inset-0 -z-10 hero-animated-bg" aria-hidden />
                             {loading && <div className="p-8 text-white">Loading repository details...</div>}
                             {!loading && !details && (
@@ -138,34 +169,51 @@ export default function RepoDetails() {
                             )}
                             {!loading && details && (
                                 <>
-                                    <h1 className="text-3xl font-bold text-indigo-400 mb-2">
+                                    <motion.h1
+                                        initial={{ y: 8, opacity: 0 }}
+                                        animate={{ y: 0, opacity: 1 }}
+                                        transition={{ duration: 0.5 }}
+                                        className="text-3xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-indigo-400 to-cyan-300 mb-2"
+                                    >
                                         <a href={details.url} target="_blank" rel="noopener noreferrer" className="hover:underline">{details.name}</a>
-                                    </h1>
+                                    </motion.h1>
 
                                     {/* Description Section */}
                                     <div className="mb-6">
                                         {details?.description ? (
-                                            <p className="text-gray-200 text-lg mb-6">{details.description}</p>
+                                            <motion.p
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: 1 }}
+                                                transition={{ delay: 0.1, duration: 0.5 }}
+                                                className="text-gray-200 text-lg mb-6"
+                                            >
+                                                {details.description}
+                                            </motion.p>
                                         ) : descSuggestion ? (
-                                            <div className="mt-3 bg-gray-800/60 p-3 rounded">
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 8 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ duration: 0.5 }}
+                                                className="mt-3 bg-gray-800/60 p-4 rounded-xl border border-pink-600/30"
+                                            >
                                                 <div className="text-sm text-gray-200">{descSuggestion}</div>
-                                                <div className="mt-2 flex gap-2">
+                                                <div className="mt-4 flex gap-2">
                                                     <button
                                                         onClick={applyDescription}
                                                         disabled={descLoading}
-                                                        className="px-3 py-1 rounded bg-indigo-600 text-white font-semibold shadow"
+                                                        className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold shadow hover:scale-[1.01] transition disabled:opacity-50"
                                                     >
-                                                        Apply
+                                                        {descLoading ? "Applying..." : "Apply"}
                                                     </button>
                                                     <button
                                                         onClick={fetchDescriptionSuggestion}
                                                         disabled={descLoading}
-                                                        className="px-3 py-1 rounded bg-pink-600 text-white font-semibold shadow"
+                                                        className="px-4 py-2 rounded-xl bg-pink-600 text-white font-semibold shadow hover:scale-[1.01] transition disabled:opacity-50"
                                                     >
-                                                        Regenerate
+                                                        {descLoading ? "Regenerating..." : "Regenerate"}
                                                     </button>
                                                 </div>
-                                            </div>
+                                            </motion.div>
                                         ) : (
                                             <div className="mt-3 text-gray-400">No description available.</div>
                                         )}
@@ -195,18 +243,29 @@ export default function RepoDetails() {
                                         )}
                                     </div>
 
-                                    {/* INSERT YouTube recommendations panel */}
-                                    <YouTubePanel
-                                        languages={details.languages || []}
-                                        frameworks={details.frameworks || []}
-                                        repoName={details.name}
-                                        repoDescription={details.description}
-                                    />
+                                    {/* Collaborators Panel */}
+                                    <div className="mb-8">
+                                        <h2 className="text-xl font-semibold mb-4">Collaborators</h2>
+                                        {collabLoading ? (
+                                            <div className="text-gray-300">Loading collaborators...</div>
+                                        ) : collaborators.length === 0 ? (
+                                            <div className="text-gray-400">No collaborators found or you do not have access.</div>
+                                        ) : (
+                                            <div className="flex flex-wrap gap-4">
+                                                {collaborators.map(c => (
+                                                    <div key={c.login} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-700/80 to-pink-700/80 text-white font-semibold shadow">
+                                                        <img src={c.avatar_url} alt={c.login} className="w-8 h-8 rounded-full border border-gray-700" />
+                                                        <a href={c.html_url} target="_blank" rel="noopener noreferrer" className="hover:underline">{c.login}</a>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
 
                                     <div className="mt-8">
                                         <h2 className="text-xl font-semibold mb-4">Commit History</h2>
                                         {labels.length > 0 ? (
-                                            <div className="bg-black/50 p-4 rounded">
+                                            <div className="bg-black/50 p-4 rounded-xl border border-indigo-700/30">
                                                 <Line data={timelineData} options={{
                                                     scales: {
                                                         x: { title: { display: true, text: "Date" } },
@@ -219,9 +278,17 @@ export default function RepoDetails() {
                                             <div className="text-gray-400">No commit history available.</div>
                                         )}
                                     </div>
+
+                                    {/* YouTube recommendations panel */}
+                                    <YouTubePanel
+                                        languages={details.languages || []}
+                                        frameworks={details.frameworks || []}
+                                        repoName={details.name}
+                                        repoDescription={details.description}
+                                    />
                                 </>
                             )}
-                        </div>
+                        </motion.div>
                     </section>
                     <aside className="lg:col-span-1">
                         <div className="sticky top-24">
