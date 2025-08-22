@@ -5,12 +5,18 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
 import google.generativeai as genai
+import json
+from urllib.parse import quote_plus
 
 
 load_dotenv()
 DESCOPE_PROJECT_ID = os.getenv("DESCOPE_PROJECT_ID", "P31EeCcDPtwQGyi9wbZk4ZLKKE5a")
 DESCOPE_MANAGEMENT_KEY = os.getenv("DESCOPE_MANAGEMENT_KEY", "K31Q3LIgVwny7Wdt5zt0cbxX8RXuESLJqoZRT3LLsVcFmwofUfhcSQOBY73l8HVp5rMjbMC")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY","AIzaSyAVSGUozgbc7AQs4xEhP_-xaTGtN78HBFU")
+YOUTUBE_OUTBOUND_APP_ID = os.getenv("YOUTUBE_OUTBOUND_APP_ID", "youtube")
+YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "AIzaSyCh7j3Y14jGYKvJUEM0V-3i6HMDbv6jwIs")
+
+
 genai.configure(api_key=GOOGLE_API_KEY)
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": ["http://localhost:5173"]}}, supports_credentials=True)
@@ -129,6 +135,7 @@ def github_minimal():
 
 @app.route("/api/github/repo/details", methods=["POST"])
 def github_repo_details():
+    import json
     body = request.get_json() or {}
     login_id = body.get("loginId")
     repo_name = body.get("repoName")
@@ -185,32 +192,53 @@ def github_repo_details():
 
     # Use Gemini to get frameworks and languages
     prompt = f"""
-You are an expert software engineer. Given the following code files from a GitHub repository, analyze and list the main programming languages and frameworks used in this project. Return your answer as a JSON object with keys 'languages' and 'frameworks', each mapping to an array of strings. Only include the most relevant ones.
+    You are an expert software engineer. Given the following code files from a GitHub repository, analyze and list the main programming languages and frameworks used in this project. Return your answer as a JSON object with keys 'languages' and 'frameworks', each mapping to an array of strings. Only include the most relevant ones.
 
-{chr(10).join(code_contents)}
+    {chr(10).join(code_contents)}
 
-JSON:
-"""
+    JSON:
+    """
+    languages = []
+    frameworks = []
     try:
         model = genai.GenerativeModel("gemini-2.0-flash")
         response = model.generate_content(prompt)
-        import json
-        tech_info = json.loads(response.text.strip())
-        languages = tech_info.get("languages", [])
-        frameworks = tech_info.get("frameworks", [])
-    except Exception:
+        print(f"Gemini response: {response.text.strip()}")
+        # Extract JSON from Gemini response robustly
+        response_text = response.text.strip()
+        # Find the first '{' and last '}' to extract JSON block
+        start = response_text.find('{')
+        end = response_text.rfind('}')
+        if start != -1 and end != -1:
+            json_str = response_text[start:end+1]
+            tech_info = json.loads(json_str)
+            languages = tech_info.get("languages", [])
+            frameworks = tech_info.get("frameworks", [])
+    except Exception as e:
+        print("Gemini extraction error:", e)
         languages = []
         frameworks = []
 
-    # Commit history
-    commits_resp = requests.get(f"https://api.github.com/repos/{user_login}/{repo_name}/commits", headers=headers, params={"per_page": 100})
+    # Get all commits (pagination)
     commits = []
-    if commits_resp.status_code == 200:
-        for c in commits_resp.json():
+    page = 1
+    while True:
+        commits_resp = requests.get(
+            f"https://api.github.com/repos/{user_login}/{repo_name}/commits",
+            headers=headers,
+            params={"per_page": 100, "page": page}
+        )
+        if commits_resp.status_code != 200:
+            break
+        page_data = commits_resp.json()
+        if not page_data:
+            break
+        for c in page_data:
             commit = c.get("commit", {})
             date = commit.get("author", {}).get("date")
             message = commit.get("message")
             commits.append({"date": date, "message": message})
+        page += 1
 
     return jsonify({
         "name": repo_name,
@@ -220,6 +248,158 @@ JSON:
         "frameworks": frameworks,
         "commits": commits
     })
+
+def gemini_make_youtube_queries(languages, frameworks, repo_name=None, repo_description=None, top_k=6):
+    prompt = f"""
+    You are an expert learning curator and software engineering teacher. The user has a GitHub repository. The most important languages are: {languages}. The main frameworks are: {frameworks}. The repository name is: {repo_name or 'unknown'}. Repo description: {repo_description or 'none'}.
+
+
+    Create a JSON object with two keys:
+    - "queries": an array of {top_k} short YouTube search queries (each 3-6 words) that will find high-quality tutorial videos or short courses targeted to someone who knows the listed languages/frameworks but may have gaps. Prefer official crash-courses, long tutorial playlists, and migration/upgrading videos when relevant.
+    - "playlist": an object with keys "title" and "description" — give a concise learning-playlist title and 1-2 sentence description.
+
+
+    Return only valid JSON.
+    """
+    model = genai.GenerativeModel("gemini-2.0-flash")
+    resp = model.generate_content(prompt)
+    text = resp.text.strip()
+    print(f"Gemini YouTube queries response: {text}")
+    # robust JSON extraction
+    start = text.find('{')
+    end = text.rfind('}')
+    if start != -1 and end != -1:
+        try:
+            js = json.loads(text[start:end+1])
+            return js.get('queries', []), js.get('playlist', {})
+        except Exception:
+            pass
+    # fallback simple queries
+    fallback_queries = []
+    for lang in (languages or [])[:3]:
+        fallback_queries.append(f"{lang} crash course")
+    for fw in (frameworks or [])[:3]:
+        fallback_queries.append(f"{fw} tutorial for beginners")
+    return fallback_queries[:top_k], {"title": f"Learning path: {', '.join((frameworks or [])[:2] or (languages or [])[:2])}", "description": "Curated videos to fill gaps detected in your repository."}
+
+
+# Helper: search YouTube (server API key)
+def youtube_search(query, max_results=5):
+    q = quote_plus(query)
+    url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults={max_results}&q={q}&key={YOUTUBE_API_KEY}"
+    r = requests.get(url)
+    if r.status_code != 200:
+        return []
+    data = r.json()
+    print(data)
+    videos = []
+    for it in data.get('items', []):
+        vid = it['id'].get('videoId')
+        snip = it['snippet']
+        videos.append({
+        'videoId': vid,
+        'title': snip.get('title'),
+        'description': snip.get('description'),
+        'channelTitle': snip.get('channelTitle'),
+        'thumbnail': snip.get('thumbnails', {}).get('default', {}).get('url'),
+        'url': f"https://youtube.com/watch?v={vid}"
+        })
+    print(videos)
+    return videos
+
+@app.route('/api/youtube/suggestions', methods=['POST'])
+def youtube_suggestions():
+    body = request.get_json() or {}
+    login_id = body.get('loginId')
+    languages = body.get('languages') or body.get('languagesFromGemini') or []
+    frameworks = body.get('frameworks') or body.get('frameworksFromGemini') or []
+    repo_name = body.get('repoName')
+    repo_description = body.get('description')
+
+
+    try:
+        queries, playlist_plan = gemini_make_youtube_queries(languages, frameworks, repo_name, repo_description)
+    except Exception as e:
+        queries, playlist_plan = [], {}
+
+
+    # For each query, run a server-side YouTube search and dedupe results
+    all_videos = []
+    seen = set()
+    for q in queries:
+        vids = youtube_search(q, max_results=6)
+        for v in vids:
+            if v['videoId'] in seen:
+                continue
+            seen.add(v['videoId'])
+            all_videos.append(v)
+            if len(all_videos) >= 12:
+                break
+
+
+    # return top N videos and playlist plan
+    return jsonify({
+    'queries': queries,
+    'playlist_plan': playlist_plan,
+    'videos': all_videos[:12]
+    })
+
+@app.route('/api/youtube/create-playlist', methods=['POST'])
+def youtube_create_playlist():
+    body = request.get_json() or {}
+    login_id = body.get('loginId')
+    video_ids = body.get('videoIds') or []
+    playlist_title = body.get('title') or 'Learning playlist'
+    playlist_description = body.get('description') or ''
+
+
+    if not login_id or not video_ids:
+        return jsonify({'error': 'loginId and videoIds are required'}), 400
+
+
+    # get user OAuth access token from Descope outbound app
+    try:
+        token = get_outbound_token(YOUTUBE_OUTBOUND_APP_ID, login_id)
+        access_token = token.get('accessToken')
+    except Exception as e:
+        return jsonify({'error': 'failed to retrieve youtube token', 'detail': str(e)}), 500
+
+
+    if not access_token:
+        return jsonify({'error': 'no access token available for user, ask them to connect YouTube'}), 400
+
+
+    # create playlist
+    headers = {'Authorization': f'Bearer {access_token}', 'Content-Type': 'application/json'}
+    create_url = 'https://www.googleapis.com/youtube/v3/playlists?part=snippet,status'
+    body_payload = {
+    'snippet': {'title': playlist_title, 'description': playlist_description},
+    'status': {'privacyStatus': 'private'}
+    }
+    r = requests.post(create_url, headers=headers, json=body_payload)
+    if r.status_code not in (200, 201):
+        return jsonify({'error': 'failed to create playlist', 'detail': r.text}), 500
+    playlist = r.json()
+    playlist_id = playlist.get('id')
+
+
+    # add videos to playlist
+    added = []
+    for vid in video_ids[:50]:
+        add_url = 'https://www.googleapis.com/youtube/v3/playlistItems?part=snippet'
+        item = {
+            'snippet': {
+            'playlistId': playlist_id,
+            'resourceId': {'kind': 'youtube#video', 'videoId': vid}
+            }
+        }
+        ar = requests.post(add_url, headers=headers, json=item)
+        if ar.status_code in (200, 201):
+            added.append(vid)
+
+
+    playlist_url = f'https://www.youtube.com/playlist?list={playlist_id}'
+    return jsonify({'playlistId': playlist_id, 'playlistUrl': playlist_url, 'added': added})
 
 if __name__ == "__main__":
     app.run(debug=True, port=int(os.environ.get("PORT", 5000)))
