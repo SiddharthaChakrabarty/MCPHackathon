@@ -430,5 +430,41 @@ def github_repo_collaborators():
         return jsonify({"collaborators": []})
     return jsonify({"collaborators": collab_resp.json()})
 
+@app.route("/api/github/description-apply", methods=["POST"])
+def github_description_apply():
+    body = request.get_json() or {}
+    login_id = body.get("loginId")
+    repo_name = body.get("repoName")
+    description = body.get("description")
+    if not login_id or not repo_name or not description:
+        return jsonify({"error": "loginId, repoName, and description required"}), 400
+
+    try:
+        token = get_outbound_token("github", login_id)
+        access_token = token["accessToken"]
+    except Exception as e:
+        return jsonify({"error": "failed to retrieve github token", "detail": str(e)}), 500
+
+    headers = {
+        "Authorization": f"token {access_token}",
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "descope-demo-app"
+    }
+
+    # Get username
+    user_resp = requests.get("https://api.github.com/user", headers=headers)
+    if user_resp.status_code != 200:
+        return jsonify({"error": "github user request failed", "detail": user_resp.text}), 500
+    user_login = user_resp.json().get("login")
+
+    # PATCH repo description
+    patch_url = f"https://api.github.com/repos/{user_login}/{repo_name}"
+    patch_data = {"description": description}
+    patch_resp = requests.patch(patch_url, headers=headers, json=patch_data)
+    if patch_resp.status_code not in (200, 201):
+        return jsonify({"error": "failed to update description", "detail": patch_resp.text}), 500
+
+    return jsonify({"success": True, "description": description})
+
 if __name__ == "__main__":
     app.run(debug=True, port=int(os.environ.get("PORT", 5000)))
