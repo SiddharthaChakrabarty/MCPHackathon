@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useSession, useUser, useDescope } from "@descope/react-sdk";
 import ConnectPanel from "../components/ConnectPanel";
+import AuthModal from "../components/AuthModal"; // Add this import
 
 const STORAGE_KEY = "connectedMap_v3";
 
@@ -12,6 +13,8 @@ export default function Home() {
     const { logout } = useDescope();
 
     const [showProfile, setShowProfile] = useState(false);
+    const [showFlow, setShowFlow] = useState(null); // Add this state
+    const [authChanged, setAuthChanged] = useState(false); // Add this state
 
     // lift connection state to Home so child updates reflect immediately
     const [connectedMap, setConnectedMap] = useState(() => {
@@ -111,7 +114,14 @@ export default function Home() {
                                 <button onClick={() => logout()} className="px-3 py-1.5 rounded-md bg-red-700/10 border border-red-700 text-sm text-red-300">Sign out</button>
                             </>
                         ) : (
-                            <div className="text-sm text-gray-400">Not signed in</div>
+                            <>
+                                <button
+                                    onClick={() => setShowFlow("sign-up-or-in")}
+                                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-pink-500 text-white font-semibold shadow-lg hover:scale-[1.01] active:scale-95 transition-transform"
+                                >
+                                    Sign up / Sign in
+                                </button>
+                            </>
                         )}
                     </div>
                 </div>
@@ -204,6 +214,8 @@ export default function Home() {
           100% { background-position: 0% 50%; }
         }
       `}</style>
+
+            <AuthModal showFlow={showFlow} setShowFlow={setShowFlow} setAuthChanged={setAuthChanged} />
         </div>
     );
 }

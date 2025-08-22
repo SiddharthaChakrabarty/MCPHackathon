@@ -59,9 +59,7 @@ export default function ConnectPanel({ compact = false, layout = "auto" }) {
         try {
             const result = await sdk.outbound.connect(providerId, { redirectURL: window.location.href });
             if (result?.data?.url) {
-                // mark pending before redirecting so we can detect completion on return
                 setConnectedMap(prev => ({ ...prev, [providerId]: "pending" }));
-                // store to localStorage explicitly (redundant with effect, but safe)
                 try {
                     const raw = JSON.parse(localStorage.getItem("connectedMap_v3") || "{}");
                     raw[providerId] = "pending";
@@ -114,6 +112,8 @@ export default function ConnectPanel({ compact = false, layout = "auto" }) {
                     setConnectedMap(raw);
                 }
             } catch { }
+            // REMOVE THIS LINE:
+            // window.location.reload();
         }
         window.addEventListener("focus", onFocus);
         return () => window.removeEventListener("focus", onFocus);

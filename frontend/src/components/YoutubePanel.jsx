@@ -9,39 +9,40 @@ export default function YouTubePanel({ languages = [], frameworks = [], repoName
     const [creating, setCreating] = useState(false);
     const [playlistUrl, setPlaylistUrl] = useState(null);
     const [error, setError] = useState(null);
+    const [regenerating, setRegenerating] = useState(false);
+
+    // Fetch suggestions
+    async function fetchSuggestions() {
+        setLoading(true);
+        setError(null);
+        try {
+            const res = await fetch("http://localhost:5000/api/youtube/suggestions", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    loginId: user?.userId,
+                    languages,
+                    frameworks,
+                    repoName,
+                    description: repoDescription,
+                }),
+            });
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(`Server error: ${res.status} ${text}`);
+            }
+            const data = await res.json();
+            setSuggestions(data);
+        } catch (e) {
+            setError(e.message || "Failed to fetch suggestions");
+            setSuggestions({ videos: [], queries: [] });
+        } finally {
+            setLoading(false);
+            setRegenerating(false);
+        }
+    }
 
     useEffect(() => {
-        async function fetchSuggestions() {
-            setLoading(true);
-            setError(null);
-            try {
-                const res = await fetch("http://localhost:5000/api/youtube/suggestions", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        loginId: user?.userId,
-                        languages,
-                        frameworks,
-                        repoName,
-                        description: repoDescription,
-                    }),
-                });
-                if (!res.ok) {
-                    const text = await res.text();
-                    throw new Error(`Server error: ${res.status} ${text}`);
-                }
-                const data = await res.json();
-                setSuggestions(data);
-            } catch (e) {
-                console.error("Failed to fetch youtube suggestions", e);
-                setError(e.message || "Failed to fetch suggestions");
-                setSuggestions({ videos: [], queries: [] });
-            } finally {
-                setLoading(false);
-            }
-        }
-
-        // fetch suggestions only if we have a user
         if (user?.userId) {
             fetchSuggestions();
         } else {
@@ -74,7 +75,6 @@ export default function YouTubePanel({ languages = [], frameworks = [], repoName
 
             const data = await res.json();
             if (!res.ok) {
-                console.error("Playlist creation error:", data);
                 setError(data.error || JSON.stringify(data));
                 alert("Playlist creation failed: " + (data.error || "see console"));
             } else {
@@ -82,12 +82,18 @@ export default function YouTubePanel({ languages = [], frameworks = [], repoName
                 alert("Playlist created successfully!");
             }
         } catch (e) {
-            console.error("Playlist creation failed", e);
             setError(e.message || "Playlist creation failed");
             alert("Playlist creation failed: " + e.message);
         } finally {
             setCreating(false);
         }
+    }
+
+    // Regenerate suggestions and playlist
+    async function regenerateSuggestionsAndPlaylist() {
+        setRegenerating(true);
+        setPlaylistUrl(null); // Remove old playlist
+        await fetchSuggestions();
     }
 
     return (
@@ -99,6 +105,13 @@ export default function YouTubePanel({ languages = [], frameworks = [], repoName
                         Video tutorials and playlists suggested based on the languages & frameworks detected in this repository.
                     </p>
                 </div>
+                <button
+                    onClick={regenerateSuggestionsAndPlaylist}
+                    disabled={loading || regenerating}
+                    className="px-3 py-2 rounded bg-pink-600 text-white font-semibold shadow hover:scale-[1.01] transition disabled:opacity-50"
+                >
+                    {regenerating ? "Regenerating…" : "Regenerate suggestions"}
+                </button>
             </div>
 
             {loading && <div className="mt-6 text-gray-300">Loading suggestions…</div>}
@@ -133,19 +146,20 @@ export default function YouTubePanel({ languages = [], frameworks = [], repoName
                     </div>
 
                     <div className="mt-6 flex gap-3 items-center">
-                        <button
-                            onClick={createPlaylist}
-                            disabled={creating}
-                            className="px-4 py-2 rounded bg-indigo-600 text-white font-semibold shadow hover:scale-[1.01] transition disabled:opacity-50"
-                        >
-                            {creating ? "Creating…" : "Create private playlist on my YouTube"}
-                        </button>
-                        {playlistUrl && (
+                        {!playlistUrl ? (
+                            <button
+                                onClick={createPlaylist}
+                                disabled={creating}
+                                className="px-4 py-2 rounded bg-indigo-600 text-white font-semibold shadow hover:scale-[1.01] transition disabled:opacity-50"
+                            >
+                                {creating ? "Creating…" : "Create private playlist on my YouTube"}
+                            </button>
+                        ) : (
                             <a
                                 href={playlistUrl}
                                 target="_blank"
                                 rel="noreferrer noopener"
-                                className="px-4 py-2 rounded bg-green-600 text-white font-semibold shadow"
+                                className="px-4 py-2 rounded bg-indigo-600 text-white font-semibold shadow"
                             >
                                 Open playlist
                             </a>

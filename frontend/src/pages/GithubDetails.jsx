@@ -1,10 +1,10 @@
-
 /* ----------------------------- src/pages/GithubDetails.jsx ----------------------------- */
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { useUser } from "@descope/react-sdk";
+import { useUser, useSession } from "@descope/react-sdk";
 import { useNavigate } from "react-router-dom";
 import ConnectPanel from "../components/ConnectPanel";
+import AuthModal from "../components/AuthModal"; // import modal
 
 function formatDate(dateStr) {
     if (!dateStr) return "Never";
@@ -14,29 +14,44 @@ function formatDate(dateStr) {
 
 export default function GithubDetails() {
     const { user } = useUser();
+    const { isAuthenticated } = useSession();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
-    const [repos, setRepos] = useState([]);
+    const [repos, setRepos] = useState(null); // null means "not loaded yet"
+    const [showFlow, setShowFlow] = useState(null);
 
     useEffect(() => {
-        async function fetchRepos() {
+        if (isAuthenticated && !repos && user?.userId) {
             setLoading(true);
-            try {
-                const res = await fetch("http://localhost:5000/api/github/minimal", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ loginId: user?.userId }),
-                });
-                const data = await res.json();
-                setRepos(data.repos || []);
-            } catch (e) {
-                setRepos([]);
-            } finally {
-                setLoading(false);
-            }
+            fetch("http://localhost:5000/api/github/minimal", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ loginId: user.userId }),
+            })
+                .then(res => res.json())
+                .then(data => setRepos(data.repos || []))
+                .catch(() => setRepos([]))
+                .finally(() => setLoading(false));
         }
-        if (user?.userId) fetchRepos();
-    }, [user]);
+    }, [isAuthenticated, user, repos]);
+
+    // Only show modal if NOT authenticated
+    useEffect(() => {
+        if (!isAuthenticated) setShowFlow("sign-up-or-in");
+        else setShowFlow(null);
+    }, [isAuthenticated]);
+
+    // If not authenticated, show modal and block page
+    if (!isAuthenticated) {
+        return (
+            <>
+                <AuthModal showFlow={showFlow} setShowFlow={setShowFlow} setAuthChanged={() => window.location.reload()} />
+                <div className="min-h-screen flex items-center justify-center bg-black text-white">
+                    <div className="text-lg">Please sign in to view your GitHub repositories.</div>
+                </div>
+            </>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-black text-gray-100">
@@ -82,10 +97,13 @@ export default function GithubDetails() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <section className="lg:col-span-2">
                         <div className="rounded-xl p-4 bg-gradient-to-br from-gray-900/50 to-gray-800/50 border border-gray-800/50">
-                            {loading ? (
+                            {loading || repos === null ? (
                                 <div className="p-8 text-gray-300">Loading repositories...</div>
                             ) : repos.length === 0 ? (
-                                <div className="p-8 text-gray-400 text-center">No repositories found.</div>
+                                <div className="p-8 text-gray-400 text-center">
+                                    No repositories found.<br />
+                                    <span className="text-xs text-red-400">{repos.error || ""}</span>
+                                </div>
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {repos.map((repo, idx) => (
@@ -112,10 +130,6 @@ export default function GithubDetails() {
                                             </div>
 
                                             <div className="mt-4 flex items-center justify-between text-sm text-gray-400">
-                                                <div className="truncate max-w-xs">
-                                                    {repo.description ? repo.description : <span className="text-gray-500 italic">No description</span>}
-                                                </div>
-
                                                 <div className="text-xs text-gray-400 whitespace-nowrap">Last commit: {formatDate(repo.last_commit)}</div>
                                             </div>
                                         </motion.div>
