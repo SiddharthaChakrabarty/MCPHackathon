@@ -1,4 +1,3 @@
-// src/pages/Home.jsx
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useSession, useUser, useDescope } from "@descope/react-sdk";
@@ -8,8 +7,8 @@ import AuthModal from "../components/AuthModal"; // Add this import
 const STORAGE_KEY = "connectedMap_v3";
 
 export default function Home() {
-    const { isAuthenticated } = useSession();
-    const { user } = useUser();
+    const { isAuthenticated, isSessionLoading } = useSession();
+    const { user, isUserLoading } = useUser();
     const { logout } = useDescope();
 
     const [showProfile, setShowProfile] = useState(false);
@@ -84,6 +83,25 @@ export default function Home() {
             window.removeEventListener("focus", onFocus);
         };
     }, []);
+
+    // Register user in MongoDB on authentication
+    useEffect(() => {
+        console.log("Auth state changed, isAuthenticated:", isAuthenticated, "user:", user)
+        if (isAuthenticated && user && user.userId) {
+            fetch('http://localhost:5000/api/user/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: user.userId,
+                    email: user.email,
+                    name: user.name || user.email?.split('@')[0], // Fallback to username from email if name not set
+                }),
+            })
+                .then(response => response.json())
+                .then(data => console.log('User registered/updated:', data))
+                .catch(error => console.error('Error registering user:', error));
+        }
+    }, [isSessionLoading, isUserLoading, isAuthenticated, user, authChanged]);
 
     const isGithubConnected = !!(connectedMap.github === "connected" || connectedMap.github === "pending");
 

@@ -7,7 +7,8 @@ from dotenv import load_dotenv
 import google.generativeai as genai
 import json
 from urllib.parse import quote_plus
-
+from datetime import datetime
+import pymongo
 
 load_dotenv()
 DESCOPE_PROJECT_ID = os.getenv("DESCOPE_PROJECT_ID", "P31EeCcDPtwQGyi9wbZk4ZLKKE5a")
@@ -15,7 +16,12 @@ DESCOPE_MANAGEMENT_KEY = os.getenv("DESCOPE_MANAGEMENT_KEY", "K31Q3LIgVwny7Wdt5z
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY","AIzaSyAVSGUozgbc7AQs4xEhP_-xaTGtN78HBFU")
 YOUTUBE_OUTBOUND_APP_ID = os.getenv("YOUTUBE_OUTBOUND_APP_ID", "youtube")
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "AIzaSyCh7j3Y14jGYKvJUEM0V-3i6HMDbv6jwIs")
+MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://csiddhartha2004:FMDfXQS5biMY0GiC@mcphackathon.ohkrsu9.mongodb.net/")  # Default to local MongoDB
 
+# MongoDB connection
+client = pymongo.MongoClient(MONGO_URI)
+db = client["futurecommit"]
+users_collection = db["users"]
 
 genai.configure(api_key=GOOGLE_API_KEY)
 app = Flask(__name__)
@@ -80,6 +86,32 @@ def detect_languages_from_code_blobs(blobs):
             tech_counts["Other"] = tech_counts.get("Other", 0) + len(content)
     # Remove zero-counts and return
     return {k: v for k, v in tech_counts.items() if v > 0}
+
+@app.route("/api/user/register", methods=["POST"])
+def user_register():
+    body = request.get_json() or {}
+    user_id = body.get("userId")
+    email = body.get("email")
+    name = body.get("name")
+    if not user_id or not email:
+        return jsonify({"error": "userId and email required"}), 400
+
+    # Upsert user in MongoDB
+    users_collection.update_one(
+        {"userId": user_id},
+        {
+            "$set": {
+                "email": email,
+                "name": name,
+                "updatedAt": datetime.utcnow()
+            },
+            "$setOnInsert": {
+                "createdAt": datetime.utcnow()
+            }
+        },
+        upsert=True
+    )
+    return jsonify({"success": True, "message": "User registered/updated successfully"})
 
 @app.route("/api/github/minimal", methods=["POST"])
 def github_minimal():
@@ -439,6 +471,50 @@ def github_description_apply():
     if not login_id or not repo_name or not description:
         return jsonify({"error": "loginId, repoName, and description required"}), 400
 
+    print(description)
+
+
+
+    try:
+        token = get_outbound_token("github", login_id)
+        access_token = token["accessToken"]
+    except Exception as e:
+        return jsonify({"error": "failed to retrieve github token", "detail": str(e)}), 500
+
+    headers = {
+        "Authorization": f"token {access_token}",
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "descope-demo-app"
+    }
+    print("Working")
+    # Get username
+    user_resp = requests.get("https://api.github.com/user", headers=headers)
+    if user_resp.status_code != 200:
+        return jsonify({"error": "github user request failed", "detail": user_resp.text}), 500
+    user_login = user_resp.json().get("login")
+
+    # PATCH repo description
+    print(user_login, repo_name, description)
+
+    patch_url = f"https://api.github.com/repos/{user_login}/{repo_name}"
+    patch_data = {"description": description}
+    patch_resp = requests.patch(patch_url, headers=headers, json=patch_data)
+    print(patch_resp.status_code, patch_resp.text)
+    if patch_resp.status_code not in (200, 201):
+        return jsonify({"error": "failed to update description", "detail": patch_resp.text}), 500
+
+
+
+    return jsonify({"success": True, "description": description})
+
+@app.route("/api/github/description-suggest", methods=["POST"])
+def github_description_suggest():
+    body = request.get_json() or {}
+    login_id = body.get("loginId")
+    repo_name = body.get("repoName")
+    if not login_id or not repo_name:
+        return jsonify({"error": "loginId and repoName required"}), 400
+
     try:
         token = get_outbound_token("github", login_id)
         access_token = token["accessToken"]
@@ -451,20 +527,49 @@ def github_description_apply():
         "User-Agent": "descope-demo-app"
     }
 
-    # Get username
     user_resp = requests.get("https://api.github.com/user", headers=headers)
-    if user_resp.status_code != 200:
-        return jsonify({"error": "github user request failed", "detail": user_resp.text}), 500
     user_login = user_resp.json().get("login")
 
-    # PATCH repo description
-    patch_url = f"https://api.github.com/repos/{user_login}/{repo_name}"
-    patch_data = {"description": description}
-    patch_resp = requests.patch(patch_url, headers=headers, json=patch_data)
-    if patch_resp.status_code not in (200, 201):
-        return jsonify({"error": "failed to update description", "detail": patch_resp.text}), 500
+    # Gather code files for Gemini analysis
+    tree_url = f"https://api.github.com/repos/{user_login}/{repo_name}/git/trees/main?recursive=1"
+    tree_resp = requests.get(tree_url, headers=headers)
+    tree = tree_resp.json().get("tree", []) if tree_resp.status_code == 200 else []
+    code_contents = []
+    for item in tree:
+        if item["type"] == "blob" and (
+            item["path"].endswith(".py") or item["path"].endswith(".js") or item["path"].endswith(".jsx") or item["path"].endswith(".ts") or item["path"].endswith(".tsx") or
+            item["path"].endswith(".java") or item["path"].endswith(".go") or item["path"].endswith(".rb") or item["path"].endswith(".php") or item["path"].endswith(".c") or
+            item["path"].endswith(".cpp") or item["path"].endswith(".cs") or item["path"].endswith(".html") or item["path"].endswith(".css") or item["path"].endswith(".md") or
+            item["path"].endswith(".sh")
+        ):
+            file_url = f"https://api.github.com/repos/{user_login}/{repo_name}/contents/{item['path']}"
+            file_resp = requests.get(file_url, headers=headers)
+            if file_resp.status_code == 200:
+                file_data = file_resp.json()
+                try:
+                    content = base64.b64decode(file_data.get("content", "")).decode("utf-8", errors="ignore")
+                    code_contents.append(f"File: {item['path']}\n{content[:1500]}")
+                except Exception:
+                    continue
+            if len(code_contents) >= 10:
+                break
 
-    return jsonify({"success": True, "description": description})
+    prompt = f"""
+You are an expert software engineer. Given the following code files from a GitHub repository, write a concise (1-2 sentence) description of what this repository does and its main purpose.It should not exceed 300 characters.
+
+{chr(10).join(code_contents)}
+
+Description:
+"""
+    suggested = ""
+    try:
+        model = genai.GenerativeModel("gemini-2.0-flash")
+        response = model.generate_content(prompt)
+        suggested = response.text.strip()
+    except Exception as e:
+        suggested = "No description available."
+
+    return jsonify({"suggested": suggested})
 
 if __name__ == "__main__":
     app.run(debug=True, port=int(os.environ.get("PORT", 5000)))
