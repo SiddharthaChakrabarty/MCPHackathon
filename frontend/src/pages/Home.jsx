@@ -1,8 +1,9 @@
+// src/pages/Home.jsx
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useSession, useUser, useDescope } from "@descope/react-sdk";
 import ConnectPanel from "../components/ConnectPanel";
-import AuthModal from "../components/AuthModal"; // Add this import
+import AuthModal from "../components/AuthModal";
 
 const STORAGE_KEY = "connectedMap_v3";
 
@@ -12,10 +13,10 @@ export default function Home() {
     const { logout } = useDescope();
 
     const [showProfile, setShowProfile] = useState(false);
-    const [showFlow, setShowFlow] = useState(null); // Add this state
-    const [authChanged, setAuthChanged] = useState(false); // Add this state
+    const [showFlow, setShowFlow] = useState(null);
+    const [authChanged, setAuthChanged] = useState(false);
 
-    // lift connection state to Home so child updates reflect immediately
+    // connection map lifted into Home
     const [connectedMap, setConnectedMap] = useState(() => {
         try {
             return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
@@ -24,14 +25,13 @@ export default function Home() {
         }
     });
 
-    // Keep localStorage and state in sync (when state changes write to storage)
     useEffect(() => {
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(connectedMap));
         } catch { }
     }, [connectedMap]);
 
-    // When app mounts / regains focus / receives storage events, refresh state from localStorage
+    // Load / promote pending->connected when mounting / focus / storage
     useEffect(() => {
         function promotePendingToConnected(map) {
             let changed = false;
@@ -61,10 +61,8 @@ export default function Home() {
             }
         }
 
-        // initial load
         loadFromStorage();
 
-        // storage events (other tabs)
         function onStorage(e) {
             if (e.key === STORAGE_KEY) {
                 loadFromStorage();
@@ -72,7 +70,6 @@ export default function Home() {
         }
         window.addEventListener("storage", onStorage);
 
-        // focus events (user returns after OAuth)
         function onFocus() {
             loadFromStorage();
         }
@@ -84,26 +81,35 @@ export default function Home() {
         };
     }, []);
 
-    // Register user in MongoDB on authentication
+    // Register user in MongoDB (existing logic)
     useEffect(() => {
-        console.log("Auth state changed, isAuthenticated:", isAuthenticated, "user:", user)
+        console.log("Auth state changed, isAuthenticated:", isAuthenticated, "user:", user);
         if (isAuthenticated && user && user.userId) {
-            fetch('http://localhost:5000/api/user/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+            fetch("http://localhost:5000/api/user/register", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     userId: user.userId,
                     email: user.email,
-                    name: user.name || user.email?.split('@')[0], // Fallback to username from email if name not set
+                    name: user.name || user.email?.split("@")[0],
                 }),
             })
                 .then(response => response.json())
-                .then(data => console.log('User registered/updated:', data))
-                .catch(error => console.error('Error registering user:', error));
+                .then(data => console.log("User registered/updated:", data))
+                .catch(error => console.error("Error registering user:", error));
         }
     }, [isSessionLoading, isUserLoading, isAuthenticated, user, authChanged]);
 
+    // Quick status booleans for UI
     const isGithubConnected = !!(connectedMap.github === "connected" || connectedMap.github === "pending");
+    const isYoutubeConnected = !!(connectedMap.youtube === "connected" || connectedMap.youtube === "pending");
+    const isNotionConnected = !!(connectedMap.notion === "connected" || connectedMap.notion === "pending");
+    const isGoogleMeetConnected = !!(connectedMap["google-meet"] === "connected" || connectedMap["google-meet"] === "pending");
+    const isGoogleCalendarConnected = !!(connectedMap["google-calendar"] === "connected" || connectedMap["google-calendar"] === "pending");
+    const isSpotifyConnected = !!(connectedMap.spotify === "connected" || connectedMap.spotify === "pending");
+    const isSlackConnected = !!(connectedMap.slack === "connected" || connectedMap.slack === "pending");
+    const isDiscordConnected = !!(connectedMap.discord === "connected" || connectedMap.discord === "pending");
+    const isLinkedinConnected = !!(connectedMap.linkedin === "connected" || connectedMap.linkedin === "pending");
 
     function handleScanRepos() {
         window.location.href = "/github-details";
@@ -111,16 +117,13 @@ export default function Home() {
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-black text-gray-100">
-            {/* top navigation */}
             <header className="w-full border-b border-gray-800/60 bg-gradient-to-b from-transparent to-black/40 backdrop-blur sticky top-0 z-20">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 flex items-center justify-center rounded-lg bg-gradient-to-br from-indigo-700 to-pink-600 text-white font-bold">FC</div>
                         <div>
-                            <motion.div initial={{ x: -10, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.6 }}>
-                                <div className="text-sm font-semibold">FutureCommit</div>
-                                <div className="text-xs text-gray-400">Commit to your growth, not just your code.</div>
-                            </motion.div>
+                            <div className="text-sm font-semibold">FutureCommit</div>
+                            <div className="text-xs text-gray-400">Commit to your growth, not just your code.</div>
                         </div>
                     </div>
 
@@ -132,21 +135,16 @@ export default function Home() {
                                 <button onClick={() => logout()} className="px-3 py-1.5 rounded-md bg-red-700/10 border border-red-700 text-sm text-red-300">Sign out</button>
                             </>
                         ) : (
-                            <>
-                                <button
-                                    onClick={() => setShowFlow("sign-up-or-in")}
-                                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-pink-500 text-white font-semibold shadow-lg hover:scale-[1.01] active:scale-95 transition-transform"
-                                >
-                                    Sign up / Sign in
-                                </button>
-                            </>
+                            <button onClick={() => setShowFlow("sign-up-or-in")} className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-pink-500 text-white font-semibold shadow-lg hover:scale-[1.01] active:scale-95 transition-transform">
+                                Sign up / Sign in
+                            </button>
                         )}
                     </div>
                 </div>
             </header>
 
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-                {/* Animated hero */}
+                {/* Hero */}
                 <section>
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }} className="rounded-2xl overflow-hidden border border-gray-800/60 p-6 shadow-xl relative bg-gradient-to-br from-gray-900/60 to-gray-800/60">
                         <div className="absolute inset-0 -z-10 hero-animated-bg" aria-hidden />
@@ -154,9 +152,8 @@ export default function Home() {
                         <div className="flex items-start justify-between gap-6">
                             <div>
                                 <motion.h1 initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1, duration: 0.6 }} className="text-3xl md:text-4xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-indigo-400 to-cyan-300">FutureCommit</motion.h1>
-
                                 <motion.p initial={{ y: 6, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2, duration: 0.6 }} className="mt-3 text-sm text-gray-300 max-w-xl">
-                                    Commit to your growth, not just your code. Connect GitHub to get project-aware learning, schedule focused practice, share updates, and land opportunities — all from one place.
+                                    Commit to your growth, not just your code. Connect services to get project-aware learning, schedule focused practice, share updates, and land opportunities — all from one place.
                                 </motion.p>
 
                                 <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.35, duration: 0.5 }} className="mt-6">
@@ -164,16 +161,19 @@ export default function Home() {
                                 </motion.div>
                             </div>
 
-                            <div className="hidden md:block w-72">
+                            <div className="hidden md:block w-80">
                                 <motion.div initial={{ rotateY: 20, opacity: 0 }} animate={{ rotateY: 0, opacity: 1 }} transition={{ duration: 0.6 }} className="p-4 rounded-lg bg-gray-900/30 border border-gray-800/50">
                                     <div className="text-xs text-gray-400">Quick status</div>
-                                    <div className="mt-3 space-y-2">
-                                        <div className="flex items-center justify-between text-sm"><div>GitHub</div><div className="text-emerald-200">{isGithubConnected ? "Connected" : "Not connected"}</div></div>
-                                        <div className="flex items-center justify-between text-sm"><div>Youtube</div><div className="text-emerald-200">{connectedMap.youtube ? "Connected" : "Not connected"}</div></div>
-                                        <div className="flex items-center justify-between text-sm"><div>Google</div><div className="text-emerald-200">{connectedMap.google ? "Connected" : "Not connected"}</div></div>
-                                        <div className="flex items-center justify-between text-sm"><div>Notion</div><div className="text-emerald-200">{connectedMap.notion ? "Connected" : "Not connected"}</div></div>
-                                        <div className="flex items-center justify-between text-sm"><div>Spotify</div><div className="text-emerald-200">{connectedMap.spotify ? "Connected" : "Not connected"}</div></div>
-                                        <div className="flex items-center justify-between text-sm"><div>Slack</div><div className="text-emerald-200">{connectedMap.slack ? "Connected" : "Not connected"}</div></div>
+                                    <div className="mt-3 space-y-2 text-sm">
+                                        <div className="flex items-center justify-between"><div>GitHub</div><div className="text-emerald-200">{isGithubConnected ? "Connected" : "Not connected"}</div></div>
+                                        <div className="flex items-center justify-between"><div>YouTube</div><div className="text-emerald-200">{isYoutubeConnected ? "Connected" : "Not connected"}</div></div>
+                                        <div className="flex items-center justify-between"><div>Notion</div><div className="text-emerald-200">{isNotionConnected ? "Connected" : "Not connected"}</div></div>
+                                        <div className="flex items-center justify-between"><div>Google Meet</div><div className="text-emerald-200">{isGoogleMeetConnected ? "Connected" : "Not connected"}</div></div>
+                                        <div className="flex items-center justify-between"><div>Google Calendar</div><div className="text-emerald-200">{isGoogleCalendarConnected ? "Connected" : "Not connected"}</div></div>
+                                        <div className="flex items-center justify-between"><div>Spotify</div><div className="text-emerald-200">{isSpotifyConnected ? "Connected" : "Not connected"}</div></div>
+                                        <div className="flex items-center justify-between"><div>Slack</div><div className="text-emerald-200">{isSlackConnected ? "Connected" : "Not connected"}</div></div>
+                                        <div className="flex items-center justify-between"><div>Discord</div><div className="text-emerald-200">{isDiscordConnected ? "Connected" : "Not connected"}</div></div>
+                                        <div className="flex items-center justify-between"><div>LinkedIn</div><div className="text-emerald-200">{isLinkedinConnected ? "Connected" : "Not connected"}</div></div>
                                     </div>
                                 </motion.div>
                             </div>
@@ -181,13 +181,12 @@ export default function Home() {
                     </motion.div>
                 </section>
 
-                {/* Full-width ConnectPanel at the TOP (horizontal layout) */}
+                {/* Connect panel */}
                 <div>
-                    {/* pass connectedMap and setter down so Home and ConnectPanel stay in sync */}
                     <ConnectPanel layout="horizontal" connectedMap={connectedMap} setConnectedMap={setConnectedMap} />
                 </div>
 
-                {/* Auth gated workspace (kept minimal) */}
+                {/* Auth gated workspace */}
                 {isAuthenticated ? (
                     <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
                         <section>
@@ -213,19 +212,16 @@ export default function Home() {
                 )}
             </main>
 
-            {/* Footer / back to top */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-right">
                 <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="px-4 py-2 rounded-md bg-sky-600/20 border border-sky-600 text-sky-200 text-sm">Back to top</button>
             </div>
 
-            {/* animated background styles */}
             <style jsx>{`
         .hero-animated-bg {
           background: linear-gradient(120deg, rgba(99,102,241,0.07), rgba(236,72,153,0.04), rgba(6,182,212,0.04));
           background-size: 300% 300%;
           animation: gradientShift 8s ease infinite;
         }
-
         @keyframes gradientShift {
           0% { background-position: 0% 50%; }
           50% { background-position: 100% 50%; }

@@ -28,16 +28,20 @@ app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": ["http://localhost:5173"]}}, supports_credentials=True)
 
 def get_outbound_token(app_id: str, user_id: str):
+    """
+    Returns the token JSON from Descope mgmt API for the given outbound app and user.
+    """
     url = "https://api.descope.com/v1/mgmt/outbound/app/user/token/latest"
     headers = {
         "Content-Type": "application/json",
+        # management auth header format - adjust per your Descope setup
         "Authorization": f"Bearer {DESCOPE_PROJECT_ID}:{DESCOPE_MANAGEMENT_KEY}"
     }
     payload = {"appId": app_id, "userId": user_id, "options": {}}
     r = requests.post(url, headers=headers, json=payload)
     if r.status_code != 200:
         raise Exception(f"Failed to fetch token: {r.status_code} {r.text}")
-    return r.json()["token"]
+    return r.json()  # contains accessToken and other fields
 
 def detect_languages_from_code_blobs(blobs):
     tech_patterns = [
@@ -96,7 +100,6 @@ def user_register():
     if not user_id or not email:
         return jsonify({"error": "userId and email required"}), 400
 
-    # Upsert user in MongoDB
     users_collection.update_one(
         {"userId": user_id},
         {
@@ -122,7 +125,7 @@ def github_minimal():
 
     try:
         token = get_outbound_token("github", login_id)
-        access_token = token["accessToken"]
+        access_token = token['token']["accessToken"]
     except Exception as e:
         return jsonify({"error": "failed to retrieve github token", "detail": str(e)}), 500
 
@@ -131,7 +134,6 @@ def github_minimal():
         "Accept": "application/vnd.github+json",
         "User-Agent": "descope-demo-app"
     }
-
     user_resp = requests.get("https://api.github.com/user", headers=headers)
     if user_resp.status_code != 200:
         return jsonify({"error": "github user request failed", "detail": user_resp.text}), 500
@@ -176,7 +178,7 @@ def github_repo_details():
 
     try:
         token = get_outbound_token("github", login_id)
-        access_token = token["accessToken"]
+        access_token = token['token']["accessToken"]
     except Exception as e:
         return jsonify({"error": "failed to retrieve github token", "detail": str(e)}), 500
 
@@ -323,7 +325,6 @@ def youtube_search(query, max_results=5):
     if r.status_code != 200:
         return []
     data = r.json()
-    print(data)
     videos = []
     for it in data.get('items', []):
         vid = it['id'].get('videoId')
@@ -392,7 +393,7 @@ def youtube_create_playlist():
     # get user OAuth access token from Descope outbound app
     try:
         token = get_outbound_token(YOUTUBE_OUTBOUND_APP_ID, login_id)
-        access_token = token.get('accessToken')
+        access_token = token['token']["accessToken"]
     except Exception as e:
         return jsonify({'error': 'failed to retrieve youtube token', 'detail': str(e)}), 500
 
@@ -443,7 +444,7 @@ def github_repo_collaborators():
 
     try:
         token = get_outbound_token("github", login_id)
-        access_token = token["accessToken"]
+        access_token = token['token']["accessToken"]
     except Exception as e:
         return jsonify({"error": "failed to retrieve github token", "detail": str(e)}), 500
 
@@ -471,13 +472,9 @@ def github_description_apply():
     if not login_id or not repo_name or not description:
         return jsonify({"error": "loginId, repoName, and description required"}), 400
 
-    print(description)
-
-
-
     try:
         token = get_outbound_token("github", login_id)
-        access_token = token["accessToken"]
+        access_token = token['token']["accessToken"]
     except Exception as e:
         return jsonify({"error": "failed to retrieve github token", "detail": str(e)}), 500
 
@@ -486,20 +483,16 @@ def github_description_apply():
         "Accept": "application/vnd.github+json",
         "User-Agent": "descope-demo-app"
     }
-    print("Working")
     # Get username
     user_resp = requests.get("https://api.github.com/user", headers=headers)
     if user_resp.status_code != 200:
         return jsonify({"error": "github user request failed", "detail": user_resp.text}), 500
     user_login = user_resp.json().get("login")
 
-    # PATCH repo description
-    print(user_login, repo_name, description)
 
     patch_url = f"https://api.github.com/repos/{user_login}/{repo_name}"
     patch_data = {"description": description}
     patch_resp = requests.patch(patch_url, headers=headers, json=patch_data)
-    print(patch_resp.status_code, patch_resp.text)
     if patch_resp.status_code not in (200, 201):
         return jsonify({"error": "failed to update description", "detail": patch_resp.text}), 500
 
@@ -517,7 +510,7 @@ def github_description_suggest():
 
     try:
         token = get_outbound_token("github", login_id)
-        access_token = token["accessToken"]
+        access_token = token['token']["accessToken"]
     except Exception as e:
         return jsonify({"error": "failed to retrieve github token", "detail": str(e)}), 500
 
@@ -570,6 +563,117 @@ Description:
         suggested = "No description available."
 
     return jsonify({"suggested": suggested})
+
+
+
+@app.route("/api/outbound/link-provider", methods=["POST"])
+def outbound_link_provider():
+    """
+    Accepts JSON: { providerId, descopeUserId, email }
+    - Uses Descope mgmt token to get the outbound access token for the provider+user,
+    - Calls the provider API (GitHub) to fetch profile (id & login),
+    - Updates users_collection entry for the matching userId/email to include connectedAccounts.github = {...}
+    """
+    body = request.get_json() or {}
+    provider_id = body.get("providerId")
+    descope_user_id = body.get("descopeUserId")
+    email = body.get("email")
+    app_user_id = body.get("appUserId")  # optional - may pass Descope user id used in your DB
+
+    if not provider_id:
+        return jsonify({"error": "providerId required"}), 400
+    if not (descope_user_id or email or app_user_id):
+        return jsonify({"error": "descopeUserId or email or appUserId required"}), 400
+
+    # Only GitHub implemented here; add other providers as needed
+    if provider_id != "github":
+        return jsonify({"error": "only github provider supported in this endpoint (demo)"}), 400
+
+    # fetch outbound token from Descope
+    try:
+        token_json = get_outbound_token(provider_id, descope_user_id or app_user_id)
+        access_token = token_json['token']["accessToken"]
+        if not access_token:
+            return jsonify({"error": "no access token returned from Descope", "detail": token_json}), 500
+    except Exception as e:
+        return jsonify({"error": "failed to retrieve outbound token", "detail": str(e)}), 500
+
+    # fetch GitHub profile
+    try:
+        headers = {
+            "Authorization": f"token {access_token}",
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "descope-demo-app"
+        }
+        r = requests.get("https://api.github.com/user", headers=headers)
+        if r.status_code != 200:
+            return jsonify({"error": "github user request failed", "detail": r.text}), 500
+        gh = r.json()
+        gh_id = gh.get("id")
+        gh_login = gh.get("login")
+    except Exception as e:
+        return jsonify({"error": "failed to fetch github profile", "detail": str(e)}), 500
+
+    # store mapping in users_collection; prefer app_user_id -> userId if present, otherwise email
+    filter_query = {}
+    if app_user_id:
+        filter_query = {"userId": app_user_id}
+    elif email:
+        filter_query = {"email": email}
+    elif descope_user_id:
+        # you may have stored userId = descope_user_id previously; try both fields
+        filter_query = {"userId": descope_user_id}
+
+    if not filter_query:
+        return jsonify({"error": "no user identifier provided to link account"}), 400
+
+    update = {
+        "$set": {
+            "connectedAccounts.github": {
+                "id": gh_id,
+                "login": gh_login,
+                "linkedAt": datetime.utcnow()
+            },
+            "updatedAt": datetime.utcnow()
+        }
+    }
+
+    result = users_collection.update_one(filter_query, update)
+    if result.matched_count == 0:
+        # optionally upsert: attach GitHub info under email or userId
+        # Here we'll try upsert by email (if email provided)
+        if email:
+            users_collection.update_one({"email": email}, {"$set": {
+                "connectedAccounts.github": {
+                    "id": gh_id,
+                    "login": gh_login,
+                    "linkedAt": datetime.utcnow()
+                },
+                "updatedAt": datetime.utcnow()
+            }}, upsert=True)
+            linked_to = "email (upsert)"
+        else:
+            # fallback: create new doc keyed by userId if we have descope_user_id/app_user_id
+            users_collection.update_one({"userId": descope_user_id or app_user_id}, {"$set": {
+                "connectedAccounts.github": {
+                    "id": gh_id,
+                    "login": gh_login,
+                    "linkedAt": datetime.utcnow()
+                },
+                "updatedAt": datetime.utcnow(),
+                "createdAt": datetime.utcnow()
+            }}, upsert=True)
+            linked_to = "userId (upsert)"
+    else:
+        linked_to = "existing user document"
+
+    return jsonify({
+        "success": True,
+        "provider": "github",
+        "github": {"id": gh_id, "login": gh_login},
+        "linkedTo": linked_to
+    })
+
 
 if __name__ == "__main__":
     app.run(debug=True, port=int(os.environ.get("PORT", 5000)))
