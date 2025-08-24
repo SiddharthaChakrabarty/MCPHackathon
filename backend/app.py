@@ -9,6 +9,8 @@ import json
 from urllib.parse import quote_plus
 from datetime import datetime
 import pymongo
+from datetime import datetime, timedelta
+import time
 
 load_dotenv()
 DESCOPE_PROJECT_ID = os.getenv("DESCOPE_PROJECT_ID", "P31EeCcDPtwQGyi9wbZk4ZLKKE5a")
@@ -17,6 +19,7 @@ GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY","AIzaSyAVSGUozgbc7AQs4xEhP_-xaTGtN78
 YOUTUBE_OUTBOUND_APP_ID = os.getenv("YOUTUBE_OUTBOUND_APP_ID", "youtube")
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "AIzaSyCh7j3Y14jGYKvJUEM0V-3i6HMDbv6jwIs")
 MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://csiddhartha2004:FMDfXQS5biMY0GiC@mcphackathon.ohkrsu9.mongodb.net/")  # Default to local MongoDB
+GOOGLE_CALENDAR_OUTBOUND_APP_ID = os.getenv("GOOGLE_CALENDAR_OUTBOUND_APP_ID", "google-calendar")  # change default if needed
 
 # MongoDB connection
 client = pymongo.MongoClient(MONGO_URI)
@@ -41,7 +44,50 @@ def get_outbound_token(app_id: str, user_id: str):
     r = requests.post(url, headers=headers, json=payload)
     if r.status_code != 200:
         raise Exception(f"Failed to fetch token: {r.status_code} {r.text}")
+    print(f"Descope token response: {r.json()}")
     return r.json()  # contains accessToken and other fields
+
+def extract_access_token(token_json):
+    """
+    Robustly extract an OAuth access token from the Descope mgmt response.
+    Supports shapes like:
+      - {"token": {"accessToken": "..."}}
+      - {"accessToken": "..."}
+      - {"token": {"token": "..."}} (older)
+      - {"tokenString": "..."}
+      - {"token": {"access_token": "..."}}
+    """
+    if not token_json or not isinstance(token_json, dict):
+        return None
+    # direct fields
+    for key in ("accessToken", "access_token", "tokenString", "token"):
+        if key in token_json and isinstance(token_json[key], str):
+            return token_json[key]
+    # nested under 'token'
+    token_field = token_json.get("token") or token_json.get("Token")
+    if isinstance(token_field, dict):
+        for k in ("accessToken", "access_token", "token", "tokenString"):
+            if token_field.get(k):
+                return token_field.get(k)
+
+def fetch_github_user_and_collaborators(access_token, repo_name):
+    headers = {
+        "Authorization": f"token {access_token}",
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "descope-demo-app"
+    }
+    # get authenticated user (owner) login
+    user_resp = requests.get("https://api.github.com/user", headers=headers)
+    if user_resp.status_code != 200:
+        raise Exception(f"GitHub user request failed: {user_resp.status_code} {user_resp.text}")
+    user_login = user_resp.json().get("login")
+
+    collab_url = f"https://api.github.com/repos/{user_login}/{repo_name}/collaborators?per_page=100"
+    collab_resp = requests.get(collab_url, headers=headers)
+    if collab_resp.status_code != 200:
+        # Try reading collaborator listing failed; return empty list
+        return user_login, []
+    return user_login, collab_resp.json()
 
 def detect_languages_from_code_blobs(blobs):
     tech_patterns = [
@@ -672,6 +718,142 @@ def outbound_link_provider():
         "provider": "github",
         "github": {"id": gh_id, "login": gh_login},
         "linkedTo": linked_to
+    })
+
+@app.route("/api/meet/create-and-invite", methods=["POST"])
+def meet_create_and_invite():
+    body = request.get_json() or {}
+    login_id = body.get("loginId")
+    repo_name = body.get("repoName")
+    custom_title = body.get("title")
+
+    if not login_id or not repo_name:
+        return jsonify({"error": "loginId and repoName required"}), 400
+
+    # 1) get GitHub token so we can list collaborators
+    try:
+        gh_token_json = get_outbound_token("github", login_id)
+        gh_access_token = extract_access_token(gh_token_json)
+        if not gh_access_token:
+            return jsonify({"error": "no github access token from Descope", "detail": gh_token_json}), 500
+    except Exception as e:
+        return jsonify({"error": "failed to retrieve github token", "detail": str(e)}), 500
+
+    # 2) fetch collaborators using helper (must return owner and list)
+    try:
+        owner_login, collaborators = fetch_github_user_and_collaborators(gh_access_token, repo_name)
+        collab_logins = [c.get("login") for c in collaborators if c.get("login")]
+    except Exception as e:
+        return jsonify({"error": "failed to list collaborators", "detail": str(e)}), 500
+
+    # 3) find collaborator emails from DB
+    emails = []
+    if collab_logins:
+        try:
+            docs = users_collection.find({"connectedAccounts.github.login": {"$in": collab_logins}})
+            for d in docs:
+                em = d.get("email")
+                if em:
+                    emails.append(em)
+        except Exception as e:
+            print("DB lookup error mapping collaborators to emails:", str(e))
+
+    emails = list(dict.fromkeys(emails))
+
+    # 4) get Google Calendar token from the right outbound app id
+    try:
+        google_app_id = GOOGLE_CALENDAR_OUTBOUND_APP_ID
+        google_token_json = get_outbound_token(google_app_id, login_id)
+        google_access_token = extract_access_token(google_token_json)
+        if not google_access_token:
+            return jsonify({"error": "no google calendar access token from Descope", "detail": google_token_json}), 500
+    except Exception as e:
+        return jsonify({"error": "failed to retrieve google calendar token", "detail": str(e)}), 500
+
+    # 5) create calendar event (try conferenceData; fallback to plain event)
+    try:
+        now = datetime.utcnow()
+        start_dt = now + timedelta(minutes=2)
+        end_dt = start_dt + timedelta(minutes=45)
+        start_iso = start_dt.replace(microsecond=0).isoformat() + "Z"
+        end_iso = end_dt.replace(microsecond=0).isoformat() + "Z"
+
+        summary = custom_title or f"{repo_name} — FutureCommit Meeting"
+        request_id = f"fc-meet-{login_id}-{int(time.time())}"
+
+        event_payload = {
+            "summary": summary,
+            "description": f"Auto-generated meeting for repo {repo_name}",
+            "start": {"dateTime": start_iso, "timeZone": "UTC"},
+            "end": {"dateTime": end_iso, "timeZone": "UTC"},
+            "attendees": [{"email": e} for e in emails],
+            "conferenceData": {
+                "createRequest": {
+                    "conferenceSolutionKey": {"type": "hangoutsMeet"},
+                    "requestId": request_id
+                }
+            }
+        }
+
+        create_url = "https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1&sendUpdates=all"
+        headers = {
+            "Authorization": f"Bearer {google_access_token}",
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+        }
+        r = requests.post(create_url, headers=headers, json=event_payload, timeout=20)
+
+        if r.status_code not in (200, 201):
+            # return Google's full error body so client can display useful info
+            google_error_body = r.text
+            # Detect insufficient scope and advise re-consent
+            try:
+                ge = r.json()
+                reason = ge.get("error", {}).get("details", [{}])[0].get("reason", "")
+                if ge.get("error", {}).get("status") == "PERMISSION_DENIED" or "insufficientPermissions" in google_error_body:
+                    return jsonify({
+                        "error": "google_insufficient_scope",
+                        "message": "Google returned insufficient scopes for the token. The user must re-consent to the Google Calendar outbound app with calendar scopes.",
+                        "google_response": ge
+                    }), 403
+            except Exception:
+                pass
+
+            # try fallback: event without conferenceData
+            fallback_payload = {k: v for k, v in event_payload.items() if k != "conferenceData"}
+            r2 = requests.post("https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=all", headers=headers, json=fallback_payload, timeout=20)
+            if r2.status_code in (200, 201):
+                ev = r2.json()
+                return jsonify({
+                    "success": True,
+                    "meetLink": None,
+                    "eventId": ev.get("id"),
+                    "invited": emails,
+                    "warning": "conference creation failed but event was created.", "google_response": r.text
+                }), 200
+            else:
+                return jsonify({"error": "google_api_error", "google_response": r.text, "status_code": r.status_code}), 500
+
+        event = r.json()
+        meet_link = event.get("hangoutLink")
+        if not meet_link:
+            cd = event.get("conferenceData", {})
+            entry_points = cd.get("entryPoints", []) if isinstance(cd, dict) else []
+            for ep in entry_points:
+                if ep.get("entryPointType") in ("video",) or ep.get("type") in ("video",):
+                    meet_link = ep.get("uri") or ep.get("address")
+                    break
+        event_id = event.get("id")
+
+    except Exception as e:
+        print("EXCEPTION during meet creation:", str(e))
+        return jsonify({"error": "failed_to_create_meet", "detail": str(e)}), 500
+
+    return jsonify({
+        "success": True,
+        "meetLink": meet_link,
+        "eventId": event_id,
+        "invited": emails
     })
 
 

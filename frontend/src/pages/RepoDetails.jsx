@@ -23,6 +23,11 @@ export default function RepoDetails() {
     const [collaborators, setCollaborators] = useState([]);
     const [collabLoading, setCollabLoading] = useState(false);
 
+    // NEW: Meet creation state
+    const [creatingMeet, setCreatingMeet] = useState(false);
+    const [meetInfo, setMeetInfo] = useState(null); // { link, invited: [] }
+    const [meetError, setMeetError] = useState(null);
+
     useEffect(() => {
         async function fetchDetails() {
             setLoading(true);
@@ -39,7 +44,6 @@ export default function RepoDetails() {
                 const data = await res.json();
                 setDetails(data);
 
-                // If no description, fetch Gemini suggestion
                 if (!data.description) {
                     fetchDescriptionSuggestion();
                 }
@@ -55,7 +59,7 @@ export default function RepoDetails() {
     }, [user, repoName]);
 
     async function fetchDescriptionSuggestion() {
-        if (descLoading) return; // Prevent double trigger
+        if (descLoading) return;
         setDescLoading(true);
         try {
             const res = await fetch("http://localhost:5000/api/github/description-suggest", {
@@ -73,7 +77,7 @@ export default function RepoDetails() {
     }
 
     async function applyDescription() {
-        if (descLoading) return; // Prevent double trigger
+        if (descLoading) return;
         setDescLoading(true);
         try {
             await fetch("http://localhost:5000/api/github/description-apply", {
@@ -82,9 +86,9 @@ export default function RepoDetails() {
                 body: JSON.stringify({ loginId: user?.userId, repoName, description: descSuggestion }),
             });
             setDetails(d => ({ ...d, description: descSuggestion }));
-            setDescSuggestion(""); // Clear suggestion after applying
+            setDescSuggestion("");
         } catch (e) {
-            // handle error
+            console.error("applyDescription", e);
         } finally {
             setDescLoading(false);
         }
@@ -111,18 +115,15 @@ export default function RepoDetails() {
         if (user?.userId && repoName) fetchCollaborators();
     }, [user, repoName]);
 
-    // Prepare commit timeline data
+    // Commit timeline
     const commitDates = details?.commits?.map(c => c.date).filter(Boolean) || [];
     const commitCounts = {};
     commitDates.forEach(date => {
-        // expect ISO timestamp; take Y-M-D
         const day = date.slice(0, 10);
         commitCounts[day] = (commitCounts[day] || 0) + 1;
     });
-
     const labels = Object.keys(commitCounts).sort();
     const dataPoints = labels.map(l => commitCounts[l]);
-
     const timelineData = {
         labels,
         datasets: [{
@@ -135,9 +136,49 @@ export default function RepoDetails() {
         }]
     };
 
+    // NEW: Create meet and invite collaborators
+    async function handleCreateAndJoinMeet() {
+        if (!user?.userId) {
+            setMeetError("You must be signed in to create a Meet.");
+            return;
+        }
+        setCreatingMeet(true);
+        setMeetError(null);
+        setMeetInfo(null);
+
+        try {
+            const res = await fetch("http://localhost:5000/api/meet/create-and-invite", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    loginId: user.userId,
+                    repoName,
+                    // optional: custom title/message could be sent
+                }),
+            });
+
+            const payload = await res.json();
+            if (!res.ok) {
+                const msg = (payload && (payload.error || payload.message)) || `Server error (${res.status})`;
+                throw new Error(msg);
+            }
+
+            // payload: { success: True, meetLink, eventId, invited }
+            const { meetLink, eventId, invited } = payload;
+            setMeetInfo({ meetLink, eventId, invited });
+            // open meet link in new tab
+            if (meetLink) window.open(meetLink, "_blank", "noopener");
+
+        } catch (err) {
+            console.error("create meet failed", err);
+            setMeetError(err?.message || String(err));
+        } finally {
+            setCreatingMeet(false);
+        }
+    }
+
     return (
         <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-black text-gray-100">
-            {/* Top header */}
             <header className="w-full border-b border-gray-800/60 bg-gradient-to-b from-transparent to-black/40 backdrop-blur sticky top-0 z-20">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-4">
@@ -156,62 +197,51 @@ export default function RepoDetails() {
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <section className="lg:col-span-2">
-                        <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.6 }}
-                            className="rounded-2xl overflow-hidden border border-gray-800/60 p-8 shadow-xl relative bg-gradient-to-br from-gray-900/60 to-gray-800/60 mb-8"
-                        >
+                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="rounded-2xl overflow-hidden border border-gray-800/60 p-8 shadow-xl relative bg-gradient-to-br from-gray-900/60 to-gray-800/60 mb-8">
                             <div className="absolute inset-0 -z-10 hero-animated-bg" aria-hidden />
                             {loading && <div className="p-8 text-white">Loading repository details...</div>}
-                            {!loading && !details && (
-                                <div className="p-8 text-gray-400">Repository details unavailable.</div>
-                            )}
+                            {!loading && !details && <div className="p-8 text-gray-400">Repository details unavailable.</div>}
                             {!loading && details && (
                                 <>
-                                    <motion.h1
-                                        initial={{ y: 8, opacity: 0 }}
-                                        animate={{ y: 0, opacity: 1 }}
-                                        transition={{ duration: 0.5 }}
-                                        className="text-3xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-indigo-400 to-cyan-300 mb-2"
-                                    >
+                                    <motion.h1 initial={{ y: 8, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.5 }} className="text-3xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-indigo-400 to-cyan-300 mb-2">
                                         <a href={details.url} target="_blank" rel="noopener noreferrer" className="hover:underline">{details.name}</a>
                                     </motion.h1>
 
-                                    {/* Description Section */}
+                                    {/* Join Meet button */}
+                                    <div className="mb-4 flex items-center gap-3">
+                                        <button
+                                            onClick={handleCreateAndJoinMeet}
+                                            disabled={creatingMeet}
+                                            className="px-4 py-2 rounded-xl bg-green-600 text-white font-semibold shadow hover:brightness-105 transition disabled:opacity-50"
+                                        >
+                                            {creatingMeet ? "Creating meet..." : "Create & Join Meet"}
+                                        </button>
+
+                                        <div className="text-sm text-gray-400">
+                                            Invites will be sent to collaborators whose email is available in our system.
+                                        </div>
+                                    </div>
+
+                                    {/* Meet result / feedback */}
+                                    {meetInfo && (
+                                        <div className="mb-4 p-3 rounded-lg bg-gray-900/50 border border-green-700/30">
+                                            <div className="text-sm text-emerald-200 mb-2">Meet created — opening in a new tab.</div>
+                                            <div className="text-xs text-gray-300">Link: <a className="text-sky-300 hover:underline" href={meetInfo.meetLink} target="_blank" rel="noreferrer">{meetInfo.meetLink}</a></div>
+                                            <div className="mt-2 text-xs text-gray-300">Invited: {meetInfo.invited && meetInfo.invited.length > 0 ? meetInfo.invited.join(", ") : "No invite emails found."}</div>
+                                        </div>
+                                    )}
+                                    {meetError && <div className="mb-4 text-sm text-red-400">{meetError}</div>}
+
+                                    {/* Description */}
                                     <div className="mb-6">
                                         {details?.description ? (
-                                            <motion.p
-                                                initial={{ opacity: 0 }}
-                                                animate={{ opacity: 1 }}
-                                                transition={{ delay: 0.1, duration: 0.5 }}
-                                                className="text-gray-200 text-lg mb-6"
-                                            >
-                                                {details.description}
-                                            </motion.p>
+                                            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1, duration: 0.5 }} className="text-gray-200 text-lg mb-6">{details.description}</motion.p>
                                         ) : descSuggestion ? (
-                                            <motion.div
-                                                initial={{ opacity: 0, y: 8 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                transition={{ duration: 0.5 }}
-                                                className="mt-3 bg-gray-800/60 p-4 rounded-xl border border-pink-600/30"
-                                            >
+                                            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mt-3 bg-gray-800/60 p-4 rounded-xl border border-pink-600/30">
                                                 <div className="text-sm text-gray-200">{descSuggestion}</div>
                                                 <div className="mt-4 flex gap-2">
-                                                    <button
-                                                        onClick={applyDescription}
-                                                        disabled={descLoading}
-                                                        className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold shadow hover:scale-[1.01] transition disabled:opacity-50"
-                                                    >
-                                                        {descLoading ? "Applying..." : "Apply"}
-                                                    </button>
-                                                    <button
-                                                        onClick={fetchDescriptionSuggestion}
-                                                        disabled={descLoading}
-                                                        className="px-4 py-2 rounded-xl bg-pink-600 text-white font-semibold shadow hover:scale-[1.01] transition disabled:opacity-50"
-                                                    >
-                                                        {descLoading ? "Regenerating..." : "Regenerate"}
-                                                    </button>
+                                                    <button onClick={applyDescription} disabled={descLoading} className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold shadow hover:scale-[1.01] transition disabled:opacity-50">{descLoading ? "Applying..." : "Apply"}</button>
+                                                    <button onClick={fetchDescriptionSuggestion} disabled={descLoading} className="px-4 py-2 rounded-xl bg-pink-600 text-white font-semibold shadow hover:scale-[1.01] transition disabled:opacity-50">{descLoading ? "Regenerating..." : "Regenerate"}</button>
                                                 </div>
                                             </motion.div>
                                         ) : (
@@ -219,47 +249,18 @@ export default function RepoDetails() {
                                         )}
                                     </div>
 
+                                    {/* Languages/Frameworks/Collaborators/Commits */}
                                     <div className="mb-10">
                                         <h2 className="text-xl font-semibold mb-4">Languages Used</h2>
-                                        {details.languages?.length > 0 ? (
-                                            <div className="flex flex-wrap gap-3 mb-6">
-                                                {details.languages.map(lang => (
-                                                    <span key={lang} className="px-4 py-2 rounded-full bg-indigo-700/80 text-white font-semibold shadow">{lang}</span>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <div className="text-gray-400">No language data available.</div>
-                                        )}
+                                        {details.languages?.length > 0 ? (<div className="flex flex-wrap gap-3 mb-6">{details.languages.map(lang => (<span key={lang} className="px-4 py-2 rounded-full bg-indigo-700/80 text-white font-semibold shadow">{lang}</span>))}</div>) : (<div className="text-gray-400">No language data available.</div>)}
 
                                         <h2 className="text-xl font-semibold mb-4">Frameworks Used</h2>
-                                        {details.frameworks?.length > 0 ? (
-                                            <div className="flex flex-wrap gap-3">
-                                                {details.frameworks.map(fw => (
-                                                    <span key={fw} className="px-4 py-2 rounded-full bg-pink-700/80 text-white font-semibold shadow">{fw}</span>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <div className="text-gray-400">No framework data available.</div>
-                                        )}
+                                        {details.frameworks?.length > 0 ? (<div className="flex flex-wrap gap-3">{details.frameworks.map(fw => (<span key={fw} className="px-4 py-2 rounded-full bg-pink-700/80 text-white font-semibold shadow">{fw}</span>))}</div>) : (<div className="text-gray-400">No framework data available.</div>)}
                                     </div>
 
-                                    {/* Collaborators Panel */}
                                     <div className="mb-8">
                                         <h2 className="text-xl font-semibold mb-4">Collaborators</h2>
-                                        {collabLoading ? (
-                                            <div className="text-gray-300">Loading collaborators...</div>
-                                        ) : collaborators.length === 0 ? (
-                                            <div className="text-gray-400">No collaborators found or you do not have access.</div>
-                                        ) : (
-                                            <div className="flex flex-wrap gap-4">
-                                                {collaborators.map(c => (
-                                                    <div key={c.login} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-700/80 to-pink-700/80 text-white font-semibold shadow">
-                                                        <img src={c.avatar_url} alt={c.login} className="w-8 h-8 rounded-full border border-gray-700" />
-                                                        <a href={c.html_url} target="_blank" rel="noopener noreferrer" className="hover:underline">{c.login}</a>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
+                                        {collabLoading ? <div className="text-gray-300">Loading collaborators...</div> : collaborators.length === 0 ? <div className="text-gray-400">No collaborators found or you do not have access.</div> : (<div className="flex flex-wrap gap-4">{collaborators.map(c => (<div key={c.login} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-700/80 to-pink-700/80 text-white font-semibold shadow"><img src={c.avatar_url} alt={c.login} className="w-8 h-8 rounded-full border border-gray-700" /><a href={c.html_url} target="_blank" rel="noopener noreferrer" className="hover:underline">{c.login}</a></div>))}</div>)}
                                     </div>
 
                                     <div className="mt-8">
@@ -279,17 +280,12 @@ export default function RepoDetails() {
                                         )}
                                     </div>
 
-                                    {/* YouTube recommendations panel */}
-                                    <YouTubePanel
-                                        languages={details.languages || []}
-                                        frameworks={details.frameworks || []}
-                                        repoName={details.name}
-                                        repoDescription={details.description}
-                                    />
+                                    <YouTubePanel languages={details.languages || []} frameworks={details.frameworks || []} repoName={details.name} repoDescription={details.description} />
                                 </>
                             )}
                         </motion.div>
                     </section>
+
                     <aside className="lg:col-span-1">
                         <div className="sticky top-24">
                             <ConnectPanel layout="vertical" />
@@ -297,18 +293,19 @@ export default function RepoDetails() {
                     </aside>
                 </div>
             </main>
+
             <style jsx>{`
-                .hero-animated-bg {
-                    background: linear-gradient(120deg, rgba(99,102,241,0.04), rgba(236,72,153,0.03), rgba(6,182,212,0.03));
-                    background-size: 300% 300%;
-                    animation: gradientShift 8s ease infinite;
-                }
-                @keyframes gradientShift {
-                    0% { background-position: 0% 50%; }
-                    50% { background-position: 100% 50%; }
-                    100% { background-position: 0% 50%; }
-                }
-            `}</style>
+        .hero-animated-bg {
+          background: linear-gradient(120deg, rgba(99,102,241,0.04), rgba(236,72,153,0.03), rgba(6,182,212,0.03));
+          background-size: 300% 300%;
+          animation: gradientShift 8s ease infinite;
+        }
+        @keyframes gradientShift {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+      `}</style>
         </div>
     );
 }
