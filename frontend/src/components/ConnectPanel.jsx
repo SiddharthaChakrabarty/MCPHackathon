@@ -63,13 +63,11 @@ export default function ConnectPanel({
             { id: "github", title: "GitHub", description: "Analyze repos & detect languages", colorClass: "github-bg", Icon: SiGithub },
             { id: "youtube", title: "YouTube", description: "Curated tutorials & playlists", colorClass: "youtube-bg", Icon: SiYoutube },
             { id: "notion", title: "Notion", description: "Timetables & learning plans", colorClass: "notion-bg", Icon: SiNotion },
-            // NOTE: google-meet and google-calendar are treated as separate outbound apps in Descope
-            { id: "google-meet", title: "Google Meet", description: "Meet scheduling & links", colorClass: "google-bg", Icon: SiGoogle },
             { id: "google-calendar", title: "Google Calendar", description: "Calendar events & availability", colorClass: "google-bg", Icon: SiGoogle },
             { id: "spotify", title: "Spotify", description: "Playlists & break scheduling", colorClass: "spotify-bg", Icon: SiSpotify },
             { id: "slack", title: "Slack", description: "Team collaboration & channels", colorClass: "slack-bg", Icon: SiSlack },
-            { id: "discord", title: "Discord", description: "Community & voice channels", colorClass: "discord-bg", Icon: SiDiscord },
             { id: "linkedin", title: "LinkedIn", description: "Professional profile & network", colorClass: "linkedin-bg", Icon: SiLinkedin },
+            // REMOVED: google-meet and discord
         ],
         []
     );

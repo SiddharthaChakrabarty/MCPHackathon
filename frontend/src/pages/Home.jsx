@@ -104,15 +104,18 @@ export default function Home() {
     const isGithubConnected = !!(connectedMap.github === "connected" || connectedMap.github === "pending");
     const isYoutubeConnected = !!(connectedMap.youtube === "connected" || connectedMap.youtube === "pending");
     const isNotionConnected = !!(connectedMap.notion === "connected" || connectedMap.notion === "pending");
-    const isGoogleMeetConnected = !!(connectedMap["google-meet"] === "connected" || connectedMap["google-meet"] === "pending");
     const isGoogleCalendarConnected = !!(connectedMap["google-calendar"] === "connected" || connectedMap["google-calendar"] === "pending");
     const isSpotifyConnected = !!(connectedMap.spotify === "connected" || connectedMap.spotify === "pending");
     const isSlackConnected = !!(connectedMap.slack === "connected" || connectedMap.slack === "pending");
-    const isDiscordConnected = !!(connectedMap.discord === "connected" || connectedMap.discord === "pending");
     const isLinkedinConnected = !!(connectedMap.linkedin === "connected" || connectedMap.linkedin === "pending");
 
     function handleScanRepos() {
         window.location.href = "/github-details";
+    }
+
+    function handleCreateAndJoinMeet() {
+        // Logic to create and join a team meeting
+        console.log("Create and join team meet");
     }
 
     return (
@@ -168,11 +171,9 @@ export default function Home() {
                                         <div className="flex items-center justify-between"><div>GitHub</div><div className="text-emerald-200">{isGithubConnected ? "Connected" : "Not connected"}</div></div>
                                         <div className="flex items-center justify-between"><div>YouTube</div><div className="text-emerald-200">{isYoutubeConnected ? "Connected" : "Not connected"}</div></div>
                                         <div className="flex items-center justify-between"><div>Notion</div><div className="text-emerald-200">{isNotionConnected ? "Connected" : "Not connected"}</div></div>
-                                        <div className="flex items-center justify-between"><div>Google Meet</div><div className="text-emerald-200">{isGoogleMeetConnected ? "Connected" : "Not connected"}</div></div>
                                         <div className="flex items-center justify-between"><div>Google Calendar</div><div className="text-emerald-200">{isGoogleCalendarConnected ? "Connected" : "Not connected"}</div></div>
                                         <div className="flex items-center justify-between"><div>Spotify</div><div className="text-emerald-200">{isSpotifyConnected ? "Connected" : "Not connected"}</div></div>
                                         <div className="flex items-center justify-between"><div>Slack</div><div className="text-emerald-200">{isSlackConnected ? "Connected" : "Not connected"}</div></div>
-                                        <div className="flex items-center justify-between"><div>Discord</div><div className="text-emerald-200">{isDiscordConnected ? "Connected" : "Not connected"}</div></div>
                                         <div className="flex items-center justify-between"><div>LinkedIn</div><div className="text-emerald-200">{isLinkedinConnected ? "Connected" : "Not connected"}</div></div>
                                     </div>
                                 </motion.div>

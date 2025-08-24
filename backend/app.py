@@ -17,9 +17,10 @@ DESCOPE_PROJECT_ID = os.getenv("DESCOPE_PROJECT_ID", "P31EeCcDPtwQGyi9wbZk4ZLKKE
 DESCOPE_MANAGEMENT_KEY = os.getenv("DESCOPE_MANAGEMENT_KEY", "K31Q3LIgVwny7Wdt5zt0cbxX8RXuESLJqoZRT3LLsVcFmwofUfhcSQOBY73l8HVp5rMjbMC")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY","AIzaSyAVSGUozgbc7AQs4xEhP_-xaTGtN78HBFU")
 YOUTUBE_OUTBOUND_APP_ID = os.getenv("YOUTUBE_OUTBOUND_APP_ID", "youtube")
-YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "AIzaSyCh7j3Y14jGYKvJUEM0V-3i6HMDbv6jwIs")
+YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "AIzaSyCgP1uNKltQwuGx3x7Db2GJS9lPk-QNJuE")
 MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://csiddhartha2004:FMDfXQS5biMY0GiC@mcphackathon.ohkrsu9.mongodb.net/")  # Default to local MongoDB
 GOOGLE_CALENDAR_OUTBOUND_APP_ID = os.getenv("GOOGLE_CALENDAR_OUTBOUND_APP_ID", "google-calendar")  # change default if needed
+LINKEDIN_OUTBOUND_APP_ID = os.getenv("LINKEDIN_OUTBOUND_APP_ID", "linkedin")
 
 # MongoDB connection
 client = pymongo.MongoClient(MONGO_URI)
@@ -485,20 +486,27 @@ def github_repo_collaborators():
     body = request.get_json() or {}
     login_id = body.get("loginId")
     repo_name = body.get("repoName")
+    print(body)
     if not login_id or not repo_name:
         return jsonify({"error": "loginId and repoName required"}), 400
+    
+    print(1)
 
     try:
         token = get_outbound_token("github", login_id)
         access_token = token['token']["accessToken"]
     except Exception as e:
         return jsonify({"error": "failed to retrieve github token", "detail": str(e)}), 500
+    
+    print(2)
 
     headers = {
         "Authorization": f"token {access_token}",
         "Accept": "application/vnd.github+json",
         "User-Agent": "descope-demo-app"
     }
+    
+    print(3)
 
     user_resp = requests.get("https://api.github.com/user", headers=headers)
     user_login = user_resp.json().get("login")
@@ -610,6 +618,299 @@ Description:
 
     return jsonify({"suggested": suggested})
 
+def generate_linkedin_text_from_repo(repo_details):
+    """
+    Use Gemini to create a polished LinkedIn project update and a concise project description for Profile API.
+    Returns: { 'post_text': str, 'project_title': str, 'project_description': str }
+    """
+    # Build a prompt using repo info
+    name = repo_details.get("name") or ""
+    description = repo_details.get("description") or ""
+    langs = ", ".join(repo_details.get("languages") or []) or "N/A"
+    fws = ", ".join(repo_details.get("frameworks") or []) or "N/A"
+    commits = repo_details.get("commits") or []
+    last_commit = commits[0].get("date") if commits else None
+
+    prompt = f"""
+You are an experienced technical writer and social media editor skilled at writing professional LinkedIn updates.
+Given the repository details below, create:
+
+1) A LinkedIn *project update* (a professional post) 2-4 sentences (max 400 characters) that announces the project, summarizes key languages/frameworks, and suggests impact/next steps. Use an upbeat professional tone, include 1-2 relevant hashtags (e.g. #React #OpenSource) and a short CTA like "See repo: <repo_url>".
+
+2) A concise project title (max 60 characters).
+
+3) A 1-2 sentence project description suitable for the LinkedIn Projects API (max 300 characters).
+
+Return a JSON object with keys: post_text, project_title, project_description only.
+Repository:
+name: {name}
+description: {description}
+languages: {langs}
+frameworks: {fws}
+repo_url: {repo_details.get("url") or '' }
+last_commit: {last_commit}
+"""
+    try:
+        model = genai.GenerativeModel("gemini-2.0-flash")
+        resp = model.generate_content(prompt)
+        out_text = resp.text.strip()
+        # extract first JSON block
+        start = out_text.find('{')
+        end = out_text.rfind('}')
+        if start != -1 and end != -1:
+            payload = json.loads(out_text[start:end+1])
+            return {
+                "post_text": payload.get("post_text", "").strip(),
+                "project_title": payload.get("project_title", "").strip(),
+                "project_description": payload.get("project_description", "").strip()
+            }
+    except Exception as e:
+        print("Gemini generative error:", e)
+
+    # Fallback simple generation
+    post_text = f"{name} — {description or 'A new project.'} Languages: {langs}. Frameworks: {fws}. See repo: {repo_details.get('url') or ''}"
+    title = name[:60]
+    pdesc = (description or post_text)[:300]
+    return {"post_text": post_text, "project_title": title, "project_description": pdesc}
+
+def create_linkedin_profile_project(access_token, person_id, title, description, url=None, members=None, single_date=True):
+    """
+    Calls LinkedIn Profile Edit API to create a project:
+    POST https://api.linkedin.com/v2/people/id={person ID}/projects
+    Returns (status_code, response_json_or_text, headers)
+    """
+    api_url = f"https://api.linkedin.com/v2/people/id={person_id}/projects"
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-Restli-Protocol-Version": "2.0.0"
+    }
+
+    # Build localized fields structure LinkedIn expects
+    localized_title = {
+        "preferredLocale": {"country": "US", "language": "en"},
+        "localized": {"en_US": title}
+    }
+    localized_description = {
+        "preferredLocale": {"country": "US", "language": "en"},
+        "localized": {"en_US": description}
+    }
+    payload = {
+        "singleDate": single_date,
+        "title": localized_title,
+        "description": localized_description
+    }
+    if url:
+        payload["url"] = url
+    if members:
+        # members should be list of {"memberId": "urn:li:person:...", "name": {...localized...}}; simple fallback:
+        payload["members"] = members
+
+    r = requests.post(api_url, headers=headers, json=payload, timeout=20)
+    try:
+        return r.status_code, r.json(), r.headers
+    except Exception:
+        return r.status_code, r.text, r.headers
+
+def create_linkedin_ugc_post(access_token, author_urn, post_text, repo_url=None, repo_title=None, visibility="PUBLIC"):
+    """
+    Create a UGC post on behalf of the member (fallback).
+    Uses v2 ugcPosts endpoint.
+    Returns (status_code, response_json_or_text).
+    Docs: https://learn.microsoft.com/en-us/linkedin/compliance/integrations/shares/ugc-post-api
+    """
+    api_url = "https://api.linkedin.com/v2/ugcPosts"
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-Restli-Protocol-Version": "2.0.0"
+    }
+
+    media_section = []
+    if repo_url:
+        # Add as an "article" style media item referencing repo_url (LinkedIn will display link preview)
+        media_section = [{
+            "status": "READY",
+            "description": {"text": f"{repo_title or ''}"},
+            "originalUrl": repo_url,
+            "title": {"text": repo_title or repo_url}
+        }]
+
+    payload = {
+        "author": author_urn,
+        "lifecycleState": "PUBLISHED",
+        "specificContent": {
+            "com.linkedin.ugc.ShareContent": {
+                "shareCommentary": {"text": post_text},
+                "shareMediaCategory": "ARTICLE" if media_section else "NONE",
+                "media": media_section
+            }
+        },
+        "visibility": {"com.linkedin.ugc.MemberNetworkVisibility": visibility}
+    }
+
+    r = requests.post(api_url, headers=headers, json=payload, timeout=20)
+    try:
+        return r.status_code, r.json()
+    except Exception:
+        return r.status_code, r.text
+
+def create_linkedin_ugc_post(access_token: str, author_urn: str, text: str, repo_url: str = None, repo_title: str = None):
+    """
+    Creates a LinkedIn UGC post (v2/ugcPosts).
+    - access_token: OAuth2 access token (w_member_social required)
+    - author_urn: "urn:li:person:{id}"
+    - text: the post text
+    - repo_url: optional article URL to attach (will create shareMediaCategory: ARTICLE)
+    - repo_title: optional title to attach to the article media
+    Returns: (status_code, parsed_response_or_text)
+    """
+    url = "https://api.linkedin.com/v2/ugcPosts"
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "X-Restli-Protocol-Version": "2.0.0",
+        "Content-Type": "application/json"
+    }
+
+    # Build the ShareContent structure
+    share_content = {
+        "shareCommentary": {"text": text},
+        # default to NONE for text-only posts
+        "shareMediaCategory": "NONE"
+    }
+
+    if repo_url:
+        # Convert to an ARTICLE share with a single media item
+        share_content["shareMediaCategory"] = "ARTICLE"
+        media_item = {
+            "status": "READY",
+            "originalUrl": repo_url,
+            "description": {"text": project_description_from_text(text=repo_title or "", repo_url=repo_url)},
+            "title": {"text": repo_title or repo_url}
+        }
+        share_content["media"] = [media_item]
+
+    payload = {
+        "author": author_urn,
+        "lifecycleState": "PUBLISHED",
+        "specificContent": {
+            "com.linkedin.ugc.ShareContent": share_content
+        },
+        "visibility": {
+            "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"
+        }
+    }
+
+    # Do the POST
+    resp = requests.post(url, headers=headers, json=payload, timeout=15)
+    try:
+        parsed = resp.json()
+    except ValueError:
+        parsed = resp.text
+    return resp.status_code, parsed
+
+def project_description_from_text(text: str, repo_url: str) -> str:
+    """Small helper to form a reasonable description for the media item."""
+    if text:
+        return text
+    if repo_url:
+        return f"Check out the project: {repo_url}"
+    return ""
+
+# --- Your route, simplified to only UGC posting ---
+@app.route("/api/linkedin/create-project-update", methods=["POST"])
+def linkedin_create_project_update():
+    """
+    Flow (UGC-only):
+      - Get Descope outbound token for LinkedIn
+      - Get LinkedIn member id (userinfo via OIDC) -> construct author urn
+      - Fetch GitHub repo details (reuse existing local endpoint)
+      - Use Gemini to create text/title/description
+      - Create UGC post (article if repo_url provided, otherwise text-only)
+    """
+    body = request.get_json() or {}
+    login_id = body.get("loginId")
+    repo_name = body.get("repoName")
+
+    if not login_id or not repo_name:
+        return jsonify({"error": "loginId and repoName required"}), 400
+
+    # 1) get LinkedIn outbound token from Descope
+    try:
+        token_json = get_outbound_token(LINKEDIN_OUTBOUND_APP_ID, login_id)
+        linkedin_access_token = extract_access_token(token_json)
+        if not linkedin_access_token:
+            return jsonify({"error": "no linkedin access token from Descope", "detail": token_json}), 500
+    except Exception as e:
+        return jsonify({"error": "failed to retrieve linkedin token", "detail": str(e)}), 500
+
+    # 2) get member id (URN) via OIDC userinfo
+    try:
+        userinfo_resp = requests.get(
+            "https://api.linkedin.com/v2/userinfo",
+            headers={"Authorization": f"Bearer {linkedin_access_token}"},
+            timeout=10
+        )
+        print("LinkedIn /userinfo response:", userinfo_resp.status_code, userinfo_resp.text)
+        if userinfo_resp.status_code != 200:
+            return jsonify({
+                "error": "failed to fetch linkedin userinfo",
+                "status": userinfo_resp.status_code,
+                "detail": userinfo_resp.text
+            }), 500
+
+        userinfo = userinfo_resp.json()
+        member_id = userinfo.get("sub")
+        if not member_id:
+            return jsonify({"error": "no sub in userinfo", "detail": userinfo}), 500
+        author_urn = f"urn:li:person:{member_id}"
+    except Exception as e:
+        return jsonify({"error": "linkedin /userinfo failed", "detail": str(e)}), 500
+
+    # 3) fetch repo details (local helper endpoint)
+    try:
+        local_resp = requests.post(
+            "http://localhost:5000/api/github/repo/details",
+            json={"loginId": login_id, "repoName": repo_name},
+            timeout=30
+        )
+        if local_resp.status_code != 200:
+            repo_details = {"name": repo_name, "url": f"https://github.com/{repo_name}", "description": ""}
+        else:
+            repo_details = local_resp.json()
+    except Exception as e:
+        repo_details = {"name": repo_name, "url": f"https://github.com/{repo_name}", "description": ""}
+
+    # 4) generate LinkedIn text via Gemini
+    gen = generate_linkedin_text_from_repo(repo_details)
+    post_text = gen.get("post_text") or f"Project update: {repo_details.get('name')}"
+    project_title = gen.get("project_title") or repo_details.get("name")
+    project_description = gen.get("project_description") or (repo_details.get("description") or "")
+
+    # 5) Create UGC post (only path)
+    try:
+        status_code, resp_json = create_linkedin_ugc_post(
+            linkedin_access_token,
+            author_urn,
+            post_text,
+            repo_url=repo_details.get("url"),
+            repo_title=project_title
+        )
+        if status_code in (200, 201):
+            return jsonify({
+                "success": True,
+                "method": "ugc_post",
+                "postResponse": resp_json
+            }), 201
+        else:
+            # include LinkedIn response so client can show exact failure reason
+            return jsonify({
+                "error": "linkedin_post_failed",
+                "status": status_code,
+                "response": resp_json
+            }), 500
+    except Exception as e:
+        return jsonify({"error": "linkedin_fallback_failed", "detail": str(e)}), 500
 
 
 @app.route("/api/outbound/link-provider", methods=["POST"])
