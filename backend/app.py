@@ -11,6 +11,7 @@ from datetime import datetime
 import pymongo
 from datetime import datetime, timedelta
 import time
+import re
 
 load_dotenv()
 DESCOPE_PROJECT_ID = os.getenv("DESCOPE_PROJECT_ID", "P31EeCcDPtwQGyi9wbZk4ZLKKE5a")
@@ -1538,8 +1539,8 @@ def gemini_generate_project_document(repo_details):
         "You are an expert technical writer and engineer. Produce a detailed, polished project document "
         "suitable for a README-style Google Doc that an engineering team can use to onboard contributors. "
         "Structure the document into clear sections (Title, Short Summary, Architecture, Key Technologies, "
-        "Setup & Run, Code Structure, Important Files, Development Workflow, Contribution Guidelines, Roadmap, "
-        "Testing Strategy, Security Considerations, Troubleshooting, References/Links). "
+        "Roadmap, "
+        "Security Considerations, Troubleshooting, References/Links). "
         "Be thorough and provide practical commands, examples, and a friendly professional tone. "
         "Return a JSON object only with keys: \"title\" (string) and \"content\" (string). "
         "The content value should be plain text (you may use markdown-style headings like '#', '##') and should be "
@@ -1569,7 +1570,7 @@ def gemini_generate_project_document(repo_details):
                 # content = payload['content'] or payload.get("Content") or ""
                 # # safe fallback trimming
                 print(title,content)
-                return title.strip(), content.strip()
+                return title, content
             except Exception as e:
                 print("Gemini returned non-JSON or malformed JSON; falling back. Error:", e)
         # fallback: use the raw text as content if JSON extraction failed
@@ -1659,10 +1660,8 @@ def try_parse_title_and_content_from_json_blob(maybe_json_str):
             print(4)
             inner = s
         try:
-            print(inner)
-            parsed = json.loads(inner)
-            print(parsed)
-            # Accept either top-level title/content or nested structure
+            json_str = inner.strip()
+            parsed = json.loads(json_str)
             title = parsed.get("title") or parsed.get("Title") or parsed.get("name")
             content = parsed.get("content") or parsed.get("Content") or parsed.get("body")
             if isinstance(content, (dict, list)):
@@ -1671,9 +1670,15 @@ def try_parse_title_and_content_from_json_blob(maybe_json_str):
                 content = json.dumps(content, indent=2)
             if title and isinstance(content, str):
                 return title.strip(), content.strip()
-        except Exception:
+        except Exception as e:
+            print("JSON parse error:", e)
             return None
     return None
+
+import re
+import json
+import requests
+
 
 def _split_into_blocks_from_markdown(md_text):
     """
@@ -1692,7 +1697,6 @@ def _split_into_blocks_from_markdown(md_text):
 
         # code fence
         if line.strip().startswith("```"):
-            fence = line.strip()[:3]
             lang = line.strip()[3:].strip()
             i += 1
             code_lines = []
@@ -1714,7 +1718,7 @@ def _split_into_blocks_from_markdown(md_text):
             i += 1
             continue
 
-        # lists (bulleted or numbered) - collect consecutive items
+        # lists (bulleted or numbered)
         m_bullet = re.match(r'^\s*[-*]\s+(.*)$', line)
         m_number = re.match(r'^\s*\d+\.\s+(.*)$', line)
         if m_bullet or m_number:
@@ -1735,15 +1739,22 @@ def _split_into_blocks_from_markdown(md_text):
             blocks.append({"type": "list", "style": style, "items": items})
             continue
 
-        # blank line -> skip but use to separate paragraphs
+        # blank line
         if line.strip() == "":
             i += 1
             continue
 
-        # paragraph - collect until blank line or other block
+        # paragraph
         para_lines = [line]
         i += 1
-        while i < len(lines) and lines[i].strip() != "" and not re.match(r'^(#{1,6})\s+(.*)$', lines[i]) and not re.match(r'^\s*[-*]\s+(.*)$', lines[i]) and not re.match(r'^\s*\d+\.\s+(.*)$', lines[i]) and not lines[i].strip().startswith("```"):
+        while (
+            i < len(lines)
+            and lines[i].strip() != ""
+            and not re.match(r'^(#{1,6})\s+(.*)$', lines[i])
+            and not re.match(r'^\s*[-*]\s+(.*)$', lines[i])
+            and not re.match(r'^\s*\d+\.\s+(.*)$', lines[i])
+            and not lines[i].strip().startswith("```")
+        ):
             para_lines.append(lines[i])
             i += 1
         blocks.append({"type": "paragraph", "text": "\n".join(para_lines).strip()})
@@ -1754,28 +1765,23 @@ def _split_into_blocks_from_markdown(md_text):
 def build_docs_requests_from_markdown(md_text):
     """
     Returns a list of docs API 'requests' suitable for documents.batchUpdate.
-    We insert content sequentially starting at index 1 and apply paragraph styles
-    (headings) and bullet list creation for list blocks.
     """
     blocks = _split_into_blocks_from_markdown(md_text)
-    requests = []
+    reqs = []
     current_index = 1  # insert at doc start
 
     for block in blocks:
         if block["type"] == "heading":
             heading_text = block["text"].rstrip() + "\n"
-            # Insert heading text
-            requests.append({"insertText": {"location": {"index": current_index}, "text": heading_text}})
-            start = current_index
-            end = current_index + len(heading_text)
-            # Map markdown heading levels to Docs namedStyleType
+            reqs.append({"insertText": {"location": {"index": current_index}, "text": heading_text}})
+            start, end = current_index, current_index + len(heading_text)
             if block["level"] <= 2:
                 named = "HEADING_1" if block["level"] == 1 else "HEADING_2"
             elif block["level"] == 3:
                 named = "HEADING_3"
             else:
                 named = "NORMAL_TEXT"
-            requests.append({
+            reqs.append({
                 "updateParagraphStyle": {
                     "range": {"startIndex": start, "endIndex": end},
                     "paragraphStyle": {"namedStyleType": named},
@@ -1786,26 +1792,21 @@ def build_docs_requests_from_markdown(md_text):
 
         elif block["type"] == "paragraph":
             para_text = block["text"].rstrip() + "\n\n"
-            requests.append({"insertText": {"location": {"index": current_index}, "text": para_text}})
+            reqs.append({"insertText": {"location": {"index": current_index}, "text": para_text}})
             current_index += len(para_text)
 
         elif block["type"] == "code":
             code_text = block["text"].rstrip() + "\n\n"
-            # Insert code block as preformatted paragraph
-            requests.append({"insertText": {"location": {"index": current_index}, "text": code_text}})
-            start = current_index
-            end = current_index + len(code_text)
-            # Attempt to set a monospace font by updating TextStyle for the range.
-            # Note: Docs API supports updateTextStyle fields like 'weightedFontFamily'
-            requests.append({
+            reqs.append({"insertText": {"location": {"index": current_index}, "text": code_text}})
+            start, end = current_index, current_index + len(code_text)
+            reqs.append({
                 "updateTextStyle": {
                     "range": {"startIndex": start, "endIndex": end},
                     "textStyle": {"weightedFontFamily": {"fontFamily": "Courier New"}},
                     "fields": "weightedFontFamily"
                 }
             })
-            # Optionally set a small left indent (looks like code block)
-            requests.append({
+            reqs.append({
                 "updateParagraphStyle": {
                     "range": {"startIndex": start, "endIndex": end},
                     "paragraphStyle": {"indentStart": {"magnitude": 18, "unit": "PT"}},
@@ -1815,60 +1816,64 @@ def build_docs_requests_from_markdown(md_text):
             current_index = end
 
         elif block["type"] == "list":
-            # insert all items, remember start and end to create bullets/numbering
             start_list_index = current_index
             for it in block["items"]:
                 item_text = it.rstrip() + "\n"
-                requests.append({"insertText": {"location": {"index": current_index}, "text": item_text}})
+                reqs.append({"insertText": {"location": {"index": current_index}, "text": item_text}})
                 current_index += len(item_text)
             end_list_index = current_index
-            # create bullets or numbered list
-            if block.get("style") == "numbered":
-                # create numbered list (use preset NUMBERED_DECIMAL)
-                requests.append({
-                    "createParagraphBullets": {
-                        "range": {"startIndex": start_list_index, "endIndex": end_list_index},
-                        "bulletPreset": "NUMBERED_DECIMAL"
-                    }
-                })
-            else:
-                requests.append({
-                    "createParagraphBullets": {
-                        "range": {"startIndex": start_list_index, "endIndex": end_list_index},
-                        "bulletPreset": "BULLET_DISC_CIRCLE"
-                    }
-                })
+            preset = "NUMBERED_DECIMAL" if block.get("style") == "numbered" else "BULLET_DISC_CIRCLE"
+            reqs.append({
+                "createParagraphBullets": {
+                    "range": {"startIndex": start_list_index, "endIndex": end_list_index},
+                    "bulletPreset": preset
+                }
+            })
 
-    return requests
+    return reqs
 
-def write_doc_content_formatted(access_token: str, document_id: str, raw_content: str):
+
+def write_doc_content_formatted(access_token: str, document_id: str, raw_content: str, title: str = None):
     """
-    Detect JSON-with-title+content or treat raw_content as markdown/plain text,
-    then build batchUpdate requests and call Docs API.
+    Build requests from markdown and push to Google Docs.
     """
-    # If raw_content itself is JSON containing title+content, parse it
-    parsed = try_parse_title_and_content_from_json_blob(raw_content)
-    if parsed:
-        # parsed: (title, content)
-        _, md_or_text = parsed
-    else:
-        md_or_text = raw_content
+    reqs = build_docs_requests_from_markdown(raw_content)
 
-    # Build the batchUpdate requests by converting markdown to structured requests.
-    requests = build_docs_requests_from_markdown(md_or_text)
+    # Insert title at the very beginning
+    if title:
+        title_text = title.strip() + "\n\n"
+        reqs.insert(0, {
+            "insertText": {
+                "location": {"index": 1},
+                "text": title_text
+            }
+        })
+        reqs.insert(1, {
+            "updateParagraphStyle": {
+                "range": {"startIndex": 1, "endIndex": 1 + len(title_text)},
+                "paragraphStyle": {"namedStyleType": "HEADING_1"},
+                "fields": "namedStyleType"
+            }
+        })
 
-    if not requests:
-        # fallback: simple insert
-        simple_text = (md_or_text.strip() + "\n")
-        requests = [{"insertText": {"location": {"index": 1}, "text": simple_text}}]
+    if not reqs:
+        simple_text = (raw_content.strip() + "\n")
+        reqs = [{"insertText": {"location": {"index": 1}, "text": simple_text}}]
 
     url = f"https://docs.googleapis.com/v1/documents/{document_id}:batchUpdate"
-    headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
-    payload = {"requests": requests}
-    r = requests_post_with_retry(url, headers=headers, json=payload)
-    if r.status_code not in (200, 201):
-        raise Exception(f"Failed to write doc content: {r.status_code} {r.text}")
-    return r.json()
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
+    payload = {"requests": reqs}
+
+    resp = requests.post(url, headers=headers, json=payload)
+    if resp.status_code not in (200, 201):
+        print("Failed payload:", json.dumps(payload, indent=2))
+        raise Exception(f"Failed to write doc content: {resp.status_code} {resp.text}")
+    return resp.json()
+
+
 
 def requests_post_with_retry(url, headers=None, json=None, params=None, timeout=12, retries=1):
     for attempt in range(retries + 1):
@@ -1905,6 +1910,7 @@ def google_create_doc_and_share():
     # 1) generate large document content using Gemini
     try:
         title, content = gemini_generate_project_document(repo_details)
+       
     except Exception as e:
         return jsonify({"error": "gemini_failed", "detail": str(e)}), 500
 
@@ -1929,7 +1935,8 @@ def google_create_doc_and_share():
 
     try:
     # doc_id and doc_url were created with create_google_doc(...)
-        write_resp = write_doc_content_formatted(google_access_token, doc_id, content)
+        print("Created doc:", doc_id, doc_url)
+        write_resp = write_doc_content_formatted(google_access_token, doc_id,title, content)
     except Exception as e:
         emsg = str(e)
         if "insufficient" in emsg.lower() or "permission_denied" in emsg.lower():
