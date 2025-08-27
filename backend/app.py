@@ -21,6 +21,9 @@ YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "AIzaSyCgP1uNKltQwuGx3x7Db2GJS9lP
 MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://csiddhartha2004:FMDfXQS5biMY0GiC@mcphackathon.ohkrsu9.mongodb.net/")  # Default to local MongoDB
 GOOGLE_CALENDAR_OUTBOUND_APP_ID = os.getenv("GOOGLE_CALENDAR_OUTBOUND_APP_ID", "google-calendar")  # change default if needed
 LINKEDIN_OUTBOUND_APP_ID = os.getenv("LINKEDIN_OUTBOUND_APP_ID", "linkedin")
+GOOGLE_SEARCH_CX = os.getenv("GOOGLE_SEARCH_CX", '40d822774ab9d4bf1')
+GOOGLE_DRIVE_OUTBOUND_APP_ID = os.getenv("GOOGLE_DRIVE_OUTBOUND_APP_ID", "google-drive")
+CUSTOM_SEARCH_API_KEY = os.getenv("CUSTOM_SEARCH_API_KEY", "AIzaSyA1p7XHFO-Y6ZmmvOuRTU4X6y5soG-zeEs")
 
 # MongoDB connection
 client = pymongo.MongoClient(MONGO_URI)
@@ -1156,6 +1159,823 @@ def meet_create_and_invite():
         "eventId": event_id,
         "invited": emails
     })
+
+def fetch_local_repo_details(login_id, repo_name):
+    try:
+        local_resp = requests.post(
+        "http://localhost:5000/api/github/repo/details",
+        json={"loginId": login_id, "repoName": repo_name},
+        timeout=30,
+        )
+        if local_resp.status_code == 200:
+            return local_resp.json()
+    except Exception:
+        pass
+    return {"name": repo_name, "url": f"https://github.com/{repo_name}",
+    "description": ""}
+
+# New: strong LinkedIn-style preview generator (detailed)
+def generate_linkedin_preview(repo_details, top_hashtags=None):
+    name = repo_details.get("name") or "Project"
+    description = repo_details.get("description") or ""
+    languages = repo_details.get("languages") or []
+    frameworks = repo_details.get("frameworks") or []
+    repo_url = repo_details.get("url") or f"https://github.com/{name}"
+    hashtags = top_hashtags or ([(frameworks[0] if frameworks else
+    (languages[0] if languages else "Project"))] if frameworks or languages else
+    [])
+    hashtag_str = " ".join([f"#{h.replace(' ', '')}" for h in hashtags[:2]])
+    prompt = f"""
+    You are an expert technical writer and social media editor specialized in
+    LinkedIn posts for software projects.
+    Given the repository details below, write a **detailed LinkedIn-style project
+    update** intended for an engineering audience and potential collaborators/
+    hiring managers.
+    Requirements:
+    - 3-4 concise sentences (but detailed) describing the problem the project
+    addresses, the approach/architecture, the key technologies (list 2–4), and
+    the impact or next steps.
+    - Include 1-2 short, relevant hashtags at the end and a clear call-to-action
+    (e.g. "See repo: <repo_url>" or "Contributions welcome").
+    - Tone: professional, upbeat, and informative.
+    - Return a JSON object only (no extra text) with keys: post_text,
+    project_title, project_description, languages, frameworks, repo_url
+    - project_description should be in bullets points and separated by newlines.
+    Repository:
+    name: {name}
+    description: {description}
+    languages: {languages}
+    frameworks: {frameworks}
+    repo_url: {repo_url}
+    JSON:
+    """
+    try:
+        model = genai.GenerativeModel("gemini-2.0-flash")
+        resp = model.generate_content(prompt)
+        text = resp.text.strip()
+        # Extract JSON block robustly
+        s = text.find("{")
+        e = text.rfind("}")
+        if s != -1 and e != -1:
+            data = json.loads(text[s:e+1])
+# ensure keys exist
+            return {
+            "post_text": data.get("post_text") or data.get("postText") or
+            "",
+            "project_title": data.get("project_title") or
+            data.get("projectTitle") or name,
+            "project_description": data.get("project_description") or
+            data.get("projectDescription") or (description[:250] if description else ""),
+            "languages": data.get("languages") or languages,
+            "frameworks": data.get("frameworks") or frameworks,
+            "repo_url": repo_url,
+            }
+    except Exception as e:
+        print("preview generation error:", e)
+    # fallback deterministic preview
+    tech_list = ", ".join((frameworks or [])[:3] or (languages or [])[:3])
+    post_text = (
+    f"{name} — {description[:200]} "
+    f"Built with {tech_list}.\nLooking for contributors and feedback. See repo: {repo_url} {hashtag_str}"
+    )
+    return {
+    "post_text": post_text,
+    "project_title": name[:60],
+    "project_description": (description or post_text)[:300],
+    "languages": languages,
+    "frameworks": frameworks,
+    "repo_url": repo_url,
+    }
+
+# Route: preview-only (no tokens required)
+@app.route("/api/linkedin/preview", methods=["POST"])
+def linkedin_preview():
+    body = request.get_json() or {}
+    login_id = body.get("loginId")
+    repo_name = body.get("repoName")
+    if not repo_name:
+        return jsonify({"error": "repoName required"}), 400
+    repo_details = fetch_local_repo_details(login_id, repo_name)
+    preview = generate_linkedin_preview(repo_details)
+    # add a 'generatedAt' timestamp for client
+    preview["generatedAt"] = datetime.utcnow().isoformat() + "Z"
+    return jsonify(preview), 200
+
+@app.route("/api/linkedin/createpost", methods=["POST"])
+def linkedin_create_post():
+    body = request.get_json() or {}
+    login_id = body.get("loginId")
+    repo_name = body.get("repoName")
+    post_text = body.get("postText")
+    if not login_id or not repo_name:
+        return jsonify({"error": "loginId and repoName required"}), 400
+    if not post_text:
+        return jsonify({"error": "postText required. Generate preview and send its postText to create the post."}), 400
+# 1) get LinkedIn outbound token from Descope
+    try:
+        token_json = get_outbound_token(LINKEDIN_OUTBOUND_APP_ID, login_id)
+        linkedin_access_token = extract_access_token(token_json)
+        if not linkedin_access_token:
+            return jsonify({"error": "no linkedin access token from Descope",
+        "detail": token_json}), 500
+    except Exception as e:
+        return jsonify({"error": "failed to retrieve linkedin token",
+"detail": str(e)}), 500
+# 2) get member id (URN) via OIDC userinfo
+    try:
+        userinfo_resp = requests.get(
+        "https://api.linkedin.com/v2/userinfo",
+        headers={"Authorization": f"Bearer {linkedin_access_token}"},
+        timeout=10
+        )
+        if userinfo_resp.status_code != 200:
+            return jsonify({"error": "failed to fetch linkedin userinfo",
+            "status": userinfo_resp.status_code, "detail": userinfo_resp.text}), 500
+        userinfo = userinfo_resp.json()
+        member_id = userinfo.get("sub")
+        if not member_id:
+            return jsonify({"error": "no sub in userinfo", "detail":
+            userinfo}), 500
+        author_urn = f"urn:li:person:{member_id}"
+    except Exception as e:
+        return jsonify({"error": "linkedin /userinfo failed", "detail":
+        str(e)}), 500
+# 3) create UGC post using provided post_text
+    try:
+        status_code, resp = create_linkedin_ugc_post(linkedin_access_token,
+        author_urn, post_text, repo_url=None, repo_title=None)
+        if status_code in (200, 201):
+            return jsonify({"success": True, "method": "ugc_post",
+            "postResponse": resp}), 201
+        else:
+            return jsonify({"error": "linkedin_post_failed", "status":
+            status_code, "response": resp}), 500
+    except Exception as e:
+        return jsonify({"error": "linkedin_post_exception", "detail":
+        str(e)}), 500
+
+
+def gemini_make_google_queries(languages, frameworks, repo_name=None, repo_description=None, top_k=6):
+    """
+    Use Gemini to generate good search queries (3-6 words) to find official docs, tutorials, and blog posts
+    relevant to the repo. Returns (queries:list, description: str)
+    """
+    prompt = f"""
+You are an expert learning curator and technical content researcher.
+Given the repository: name={repo_name or 'unknown'}, description={repo_description or 'none'},
+languages={languages}, frameworks={frameworks} — produce {top_k} short Google search queries (3-6 words each)
+that will find official documentation pages, high-quality blog posts, and tutorials relevant to this repo.
+Return a JSON object: {{ "queries": [ ... ], "notes": "brief note" }} and nothing else.
+"""
+    try:
+        model = genai.GenerativeModel("gemini-2.0-flash")
+        resp = model.generate_content(prompt)
+        text = resp.text.strip()
+        s = text.find("{")
+        e = text.rfind("}")
+        if s != -1 and e != -1:
+            payload = json.loads(text[s:e+1])
+            qs = payload.get("queries", [])
+            return qs[:top_k], payload.get("notes", "")
+    except Exception as ex:
+        print("gemini_make_google_queries error:", ex)
+    # fallback: simple queries
+    qlist = []
+    for lang in (languages or [])[:3]:
+        qlist.append(f"{lang} official docs")
+        qlist.append(f"{lang} blog tutorial")
+    for fw in (frameworks or [])[:3]:
+        qlist.append(f"{fw} guide")
+    if repo_name:
+        qlist.insert(0, f"{repo_name} documentation")
+    # dedupe & trim
+    seen = []
+    for q in qlist:
+        if q not in seen:
+            seen.append(q)
+    return seen[:top_k], "Fallback queries generated"
+
+@app.route("/api/google/suggestions", methods=["POST"])
+def google_suggestions():
+    """
+    Request body: { loginId?, repoName, languages, frameworks, description }
+    - If GOOGLE_SEARCH_CX is set the server will call Google Custom Search JSON API to fetch results.
+    - Returns: { queries: [...], notes: "...", results: [{title, link, snippet}], cx_present: bool }
+    """
+    body = request.get_json() or {}
+    login_id = body.get("loginId")
+    languages = body.get("languages") or []
+    frameworks = body.get("frameworks") or []
+    repo_name = body.get("repoName")
+    repo_description = body.get("description")
+
+    try:
+        queries, notes = gemini_make_google_queries(languages, frameworks, repo_name, repo_description)
+    except Exception as e:
+        print("gemini google queries failed:", e)
+        queries, notes = [], ""
+
+    results = []
+    if GOOGLE_SEARCH_CX and queries:
+        # call Google Custom Search JSON API for each query
+        for q in queries:
+            try:
+                url = "https://www.googleapis.com/customsearch/v1"
+                params = {"key": CUSTOM_SEARCH_API_KEY, "cx": GOOGLE_SEARCH_CX, "q": q, "num": 5}
+                r = requests.get(url, params=params, timeout=8)
+                if r.status_code != 200:
+                    print("customsearch error", r.status_code, r.text)
+                    continue
+                data = r.json()
+                for item in data.get("items", []):
+                    results.append({
+                        "title": item.get("title"),
+                        "link": item.get("link"),
+                        "snippet": item.get("snippet"),
+                        "queryMatched": q
+                    })
+                    # limit total results to ~20
+                    if len(results) >= 20:
+                        break
+                if len(results) >= 20:
+                    break
+            except Exception as e:
+                print("customsearch request failed", e)
+                continue
+
+    # If CX not present, return queries only (client can show them)
+    return jsonify({
+        "queries": queries,
+        "notes": notes,
+        "results": results,
+        "cx_present": bool(GOOGLE_SEARCH_CX)
+    }), 200
+
+
+def _drive_create_folder_and_files(access_token: str, folder_name: str, items: list):
+    """
+    - access_token: user's google OAuth token (Drive access)
+    - folder_name: name for the folder
+    - items: list of { title, link, snippet } to store as small .txt files in folder
+    Returns: (folder_id, files_created:list)
+    """
+    headers = {"Authorization": f"Bearer {access_token}", "Accept": "application/json"}
+
+    # 1) create folder
+    print("Creating Drive folder:", folder_name)
+    meta = {"name": folder_name, "mimeType": "application/vnd.google-apps.folder"}
+    r = requests.post("https://www.googleapis.com/drive/v3/files", headers={**headers, "Content-Type": "application/json"}, json=meta, timeout=10)
+    print("Drive folder creation response:", r.status_code, r.text)
+    if r.status_code not in (200, 201):
+        # surface Google's error for debugging / re-consent detection
+        raise Exception(f"Drive folder creation failed: {r.status_code} {r.text}")
+    folder = r.json()
+    folder_id = folder.get("id")
+
+    files_created = []
+    # 2) upload each item as a small .txt file into the folder using multipart upload
+    for idx, it in enumerate(items[:50]):  # safety: max 50 files
+        title = (it.get("title") or f"resource-{idx+1}").replace("/", "-")[:200]
+        name = f"{title}.txt"
+        content = f"{it.get('title','')}\n{it.get('link','')}\n\n{it.get('snippet','')}\n"
+        # prepare multipart body
+        boundary = "-------driveUploadBoundary"
+        metadata = {"name": name, "parents": [folder_id], "mimeType": "text/plain"}
+        body = (
+            f"--{boundary}\r\n"
+            "Content-Type: application/json; charset=UTF-8\r\n\r\n"
+            f"{json.dumps(metadata)}\r\n"
+            f"--{boundary}\r\n"
+            "Content-Type: text/plain; charset=UTF-8\r\n\r\n"
+            f"{content}\r\n"
+            f"--{boundary}--\r\n"
+        ).encode("utf-8")
+        up_headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": f"multipart/related; boundary={boundary}"
+        }
+        up_url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart"
+        ur = requests.post(up_url, headers=up_headers, data=body, timeout=20)
+        if ur.status_code in (200, 201):
+            created = ur.json()
+            files_created.append({"id": created.get("id"), "name": created.get("name"), "mimeType": created.get("mimeType")})
+        else:
+            # try to continue but note the failure
+            print("Drive file upload failed:", ur.status_code, ur.text)
+    return folder_id, files_created
+
+
+@app.route("/api/google/create-folder", methods=["POST"])
+def google_create_folder():
+    """
+    Request body:
+      { loginId, folderName(optional), items: [{title, link, snippet}, ...] }
+    Flow:
+      - get Descope outbound token for google-drive outbound app
+      - extract google access token
+      - create folder and upload .txt files containing the links/snippets
+    """
+    body = request.get_json() or {}
+    login_id = body.get("loginId")
+    folder_name = body.get("folderName") or f"Repo resources - {body.get('repoName') or 'repo'} - {datetime.utcnow().strftime('%Y-%m-%d')}"
+    items = body.get("items") or []
+
+    if not login_id:
+        return jsonify({"error": "loginId required"}), 400
+    if not items:
+        return jsonify({"error": "items required (list of {title,link,snippet})"}), 400
+
+    # get Descope outbound token for google drive
+    try:
+        token_json = get_outbound_token(GOOGLE_DRIVE_OUTBOUND_APP_ID, login_id)
+        google_access_token = extract_access_token(token_json)
+        if not google_access_token:
+            return jsonify({"error": "no google access token from Descope", "detail": token_json}), 500
+    except Exception as e:
+        return jsonify({"error": "failed to retrieve google token", "detail": str(e)}), 500
+
+    # create folder and files
+    try:
+        folder_id, created_files = _drive_create_folder_and_files(google_access_token, folder_name, items)
+        folder_url = f"https://drive.google.com/drive/folders/{folder_id}"
+        return jsonify({
+            "success": True,
+            "folderId": folder_id,
+            "folderUrl": folder_url,
+            "files": created_files
+        }), 201
+    except Exception as e:
+        # if Google reports insufficient scope, surface hint to re-consent
+        text = str(e)
+
+        if "insufficient" in text.lower() or "permission" in text.lower():
+            return jsonify({
+                "error": text,
+                "message": "Google returned a permission error. The user must r e-consent to the Google Drive outbound app with drive.file or drive scope.",
+                "detail": text
+            }), 403
+        return jsonify({"error": "drive_operation_failed", "detail": text}), 500
+
+# --- BACKEND: new helper + route (insert into your server file) ---
+
+def gemini_generate_project_document(repo_details):
+    """
+    Use Gemini to generate a detailed, multi-section project document.
+    Returns: (title: str, content: str) where content is plain text (markdown-style sections).
+    """
+
+    # Build a plain string prompt (avoid embedding JSON braces inside Python format placeholders)
+    name = repo_details.get("name", "")
+    description = repo_details.get("description", "")
+    languages = ", ".join(repo_details.get("languages") or [])
+    frameworks = ", ".join(repo_details.get("frameworks") or [])
+    commits = repo_details.get("commits") or []
+
+    # Compose commit summary (most recent few messages)
+    recent_commits = "\n".join([f"- {c.get('date','?')}: {c.get('message','')}" for c in (commits[:6] if commits else [])])
+
+    prompt = (
+        "You are an expert technical writer and engineer. Produce a detailed, polished project document "
+        "suitable for a README-style Google Doc that an engineering team can use to onboard contributors. "
+        "Structure the document into clear sections (Title, Short Summary, Architecture, Key Technologies, "
+        "Setup & Run, Code Structure, Important Files, Development Workflow, Contribution Guidelines, Roadmap, "
+        "Testing Strategy, Security Considerations, Troubleshooting, References/Links). "
+        "Be thorough and provide practical commands, examples, and a friendly professional tone. "
+        "Return a JSON object only with keys: \"title\" (string) and \"content\" (string). "
+        "The content value should be plain text (you may use markdown-style headings like '#', '##') and should be "
+        "suitable for direct insertion into a Google Doc body. Do NOT include any extra text outside the JSON object.\n\n"
+        f"Repository name: {name}\n"
+        f"Repository description: {description}\n"
+        f"Languages: {languages}\n"
+        f"Frameworks: {frameworks}\n"
+        f"Recent commits (if any):\n{recent_commits}\n\n"
+        "JSON:"
+    )
+
+    try:
+        model = genai.GenerativeModel("gemini-2.0-flash")
+        resp = model.generate_content(prompt)
+        text = resp.text.strip()
+        # robustly extract the first JSON object found
+        start = text.find("{")
+        end = text.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            json_blob = text[start:end+1]
+            print(json_blob)
+            try:
+                title,content = try_parse_title_and_content_from_json_blob(json_blob)
+                # print("Gemini project doc payload:", payload)
+                # title = payload['title'] or payload.get("Title") or name
+                # content = payload['content'] or payload.get("Content") or ""
+                # # safe fallback trimming
+                print(title,content)
+                return title.strip(), content.strip()
+            except Exception as e:
+                print("Gemini returned non-JSON or malformed JSON; falling back. Error:", e)
+        # fallback: use the raw text as content if JSON extraction failed
+        fallback_title = f"{name} — Project Overview"
+        fallback_content = text if text else f"# {name}\n\n{description}"
+        return fallback_title, fallback_content
+    except Exception as e:
+        print("gemini_generate_project_document error:", e)
+        return (f"{repo_details.get('name') or 'Project'} — Overview", repo_details.get('description') or "")
+
+def create_google_doc(access_token: str, title: str):
+    """
+    Creates a Google Doc with the given title. Returns (documentId, documentUrl) or raises.
+    Requires https://www.googleapis.com/auth/documents scope.
+    """
+    url = "https://docs.googleapis.com/v1/documents"
+    headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
+    payload = {"title": title}
+    r = requests.post(url, headers=headers, json=payload, timeout=10)
+    if r.status_code not in (200, 201):
+        raise Exception(f"Failed to create doc: {r.status_code} {r.text}")
+    d = r.json()
+    doc_id = d.get("documentId")
+    if not doc_id:
+        raise Exception("No documentId returned from Docs API")
+    doc_url = f"https://docs.google.com/document/d/{doc_id}/edit"
+    return doc_id, doc_url
+
+def write_doc_content(access_token: str, document_id: str, content: str):
+    """
+    Writes plain text content into the document using the Docs batchUpdate API.
+    Requires https://www.googleapis.com/auth/documents scope.
+    """
+    url = f"https://docs.googleapis.com/v1/documents/{document_id}:batchUpdate"
+    headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
+    # Insert text at index 1 (document has initial body). This is simple but effective for most uses.
+    requests_payload = {
+        "requests": [
+            {"insertText": {"location": {"index": 1}, "text": content}}
+        ]
+    }
+    r = requests.post(url, headers=headers, json=requests_payload, timeout=12)
+    if r.status_code not in (200, 201):
+        raise Exception(f"Failed to write doc content: {r.status_code} {r.text}")
+    return r.json()
+
+def share_file_with_emails(access_token: str, file_id: str, emails: list, send_notification=True):
+    """
+    Create 'writer' permissions for each email on the Drive file.
+    Requires https://www.googleapis.com/auth/drive (or drive.file + documents?) and the Drive API enabled.
+    Returns a dict mapping email -> (status_code, response_text_or_json)
+    """
+    results = {}
+    headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
+    base = f"https://www.googleapis.com/drive/v3/files/{file_id}/permissions"
+    for email in emails:
+        body = {"role": "writer", "type": "user", "emailAddress": email}
+        params = {"sendNotificationEmail": "true" if send_notification else "false"}
+        r = requests.post(base, headers=headers, params=params, json=body, timeout=10)
+        try:
+            parsed = r.json()
+        except Exception:
+            parsed = r.text
+        results[email] = {"status": r.status_code, "response": parsed}
+    return results
+
+
+def try_parse_title_and_content_from_json_blob(maybe_json_str):
+    """
+    If the string is JSON (object) with 'title' and 'content', return (title, content).
+    Otherwise return None.
+    """
+    if not isinstance(maybe_json_str, str):
+        print(1)
+        return None
+    s = maybe_json_str.strip()
+    if not s:
+        print(2)
+        return None
+    # quick heuristic: if starts with { or with ```json
+    if s.startswith("{") or s.startswith('```json'):
+        # strip triple-backtick wrapper if present
+        if s.startswith('```') and s.endswith('```'):
+            print(3)
+            inner = "\n".join(s.splitlines()[1:-1])
+        else:
+            print(4)
+            inner = s
+        try:
+            print(inner)
+            parsed = json.loads(inner)
+            print(parsed)
+            # Accept either top-level title/content or nested structure
+            title = parsed.get("title") or parsed.get("Title") or parsed.get("name")
+            content = parsed.get("content") or parsed.get("Content") or parsed.get("body")
+            if isinstance(content, (dict, list)):
+                # if content itself is non-string, convert to pretty JSON string
+                print(6)
+                content = json.dumps(content, indent=2)
+            if title and isinstance(content, str):
+                return title.strip(), content.strip()
+        except Exception:
+            return None
+    return None
+
+def _split_into_blocks_from_markdown(md_text):
+    """
+    Very small Markdown-ish parser that yields blocks:
+      - {'type': 'heading', 'level': n, 'text': '...'}
+      - {'type': 'paragraph', 'text': '...'}
+      - {'type': 'list', 'style': 'bulleted'|'numbered', 'items': [...]}
+      - {'type': 'code', 'text': '...'}
+    """
+    lines = md_text.splitlines()
+    i = 0
+    blocks = []
+
+    while i < len(lines):
+        line = lines[i]
+
+        # code fence
+        if line.strip().startswith("```"):
+            fence = line.strip()[:3]
+            lang = line.strip()[3:].strip()
+            i += 1
+            code_lines = []
+            while i < len(lines) and not lines[i].strip().startswith("```"):
+                code_lines.append(lines[i])
+                i += 1
+            # skip closing fence
+            if i < len(lines) and lines[i].strip().startswith("```"):
+                i += 1
+            blocks.append({"type": "code", "text": "\n".join(code_lines), "lang": lang})
+            continue
+
+        # headings (#, ##, ###)
+        m = re.match(r'^(#{1,6})\s+(.*)$', line)
+        if m:
+            level = len(m.group(1))
+            text = m.group(2).strip()
+            blocks.append({"type": "heading", "level": level, "text": text})
+            i += 1
+            continue
+
+        # lists (bulleted or numbered) - collect consecutive items
+        m_bullet = re.match(r'^\s*[-*]\s+(.*)$', line)
+        m_number = re.match(r'^\s*\d+\.\s+(.*)$', line)
+        if m_bullet or m_number:
+            items = []
+            style = "bulleted" if m_bullet else "numbered"
+            while i < len(lines):
+                lb = lines[i]
+                mb = re.match(r'^\s*[-*]\s+(.*)$', lb)
+                mn = re.match(r'^\s*\d+\.\s+(.*)$', lb)
+                if mb:
+                    items.append(mb.group(1).rstrip())
+                    i += 1
+                elif mn:
+                    items.append(mn.group(1).rstrip())
+                    i += 1
+                else:
+                    break
+            blocks.append({"type": "list", "style": style, "items": items})
+            continue
+
+        # blank line -> skip but use to separate paragraphs
+        if line.strip() == "":
+            i += 1
+            continue
+
+        # paragraph - collect until blank line or other block
+        para_lines = [line]
+        i += 1
+        while i < len(lines) and lines[i].strip() != "" and not re.match(r'^(#{1,6})\s+(.*)$', lines[i]) and not re.match(r'^\s*[-*]\s+(.*)$', lines[i]) and not re.match(r'^\s*\d+\.\s+(.*)$', lines[i]) and not lines[i].strip().startswith("```"):
+            para_lines.append(lines[i])
+            i += 1
+        blocks.append({"type": "paragraph", "text": "\n".join(para_lines).strip()})
+
+    return blocks
+
+
+def build_docs_requests_from_markdown(md_text):
+    """
+    Returns a list of docs API 'requests' suitable for documents.batchUpdate.
+    We insert content sequentially starting at index 1 and apply paragraph styles
+    (headings) and bullet list creation for list blocks.
+    """
+    blocks = _split_into_blocks_from_markdown(md_text)
+    requests = []
+    current_index = 1  # insert at doc start
+
+    for block in blocks:
+        if block["type"] == "heading":
+            heading_text = block["text"].rstrip() + "\n"
+            # Insert heading text
+            requests.append({"insertText": {"location": {"index": current_index}, "text": heading_text}})
+            start = current_index
+            end = current_index + len(heading_text)
+            # Map markdown heading levels to Docs namedStyleType
+            if block["level"] <= 2:
+                named = "HEADING_1" if block["level"] == 1 else "HEADING_2"
+            elif block["level"] == 3:
+                named = "HEADING_3"
+            else:
+                named = "NORMAL_TEXT"
+            requests.append({
+                "updateParagraphStyle": {
+                    "range": {"startIndex": start, "endIndex": end},
+                    "paragraphStyle": {"namedStyleType": named},
+                    "fields": "namedStyleType"
+                }
+            })
+            current_index = end
+
+        elif block["type"] == "paragraph":
+            para_text = block["text"].rstrip() + "\n\n"
+            requests.append({"insertText": {"location": {"index": current_index}, "text": para_text}})
+            current_index += len(para_text)
+
+        elif block["type"] == "code":
+            code_text = block["text"].rstrip() + "\n\n"
+            # Insert code block as preformatted paragraph
+            requests.append({"insertText": {"location": {"index": current_index}, "text": code_text}})
+            start = current_index
+            end = current_index + len(code_text)
+            # Attempt to set a monospace font by updating TextStyle for the range.
+            # Note: Docs API supports updateTextStyle fields like 'weightedFontFamily'
+            requests.append({
+                "updateTextStyle": {
+                    "range": {"startIndex": start, "endIndex": end},
+                    "textStyle": {"weightedFontFamily": {"fontFamily": "Courier New"}},
+                    "fields": "weightedFontFamily"
+                }
+            })
+            # Optionally set a small left indent (looks like code block)
+            requests.append({
+                "updateParagraphStyle": {
+                    "range": {"startIndex": start, "endIndex": end},
+                    "paragraphStyle": {"indentStart": {"magnitude": 18, "unit": "PT"}},
+                    "fields": "indentStart"
+                }
+            })
+            current_index = end
+
+        elif block["type"] == "list":
+            # insert all items, remember start and end to create bullets/numbering
+            start_list_index = current_index
+            for it in block["items"]:
+                item_text = it.rstrip() + "\n"
+                requests.append({"insertText": {"location": {"index": current_index}, "text": item_text}})
+                current_index += len(item_text)
+            end_list_index = current_index
+            # create bullets or numbered list
+            if block.get("style") == "numbered":
+                # create numbered list (use preset NUMBERED_DECIMAL)
+                requests.append({
+                    "createParagraphBullets": {
+                        "range": {"startIndex": start_list_index, "endIndex": end_list_index},
+                        "bulletPreset": "NUMBERED_DECIMAL"
+                    }
+                })
+            else:
+                requests.append({
+                    "createParagraphBullets": {
+                        "range": {"startIndex": start_list_index, "endIndex": end_list_index},
+                        "bulletPreset": "BULLET_DISC_CIRCLE"
+                    }
+                })
+
+    return requests
+
+def write_doc_content_formatted(access_token: str, document_id: str, raw_content: str):
+    """
+    Detect JSON-with-title+content or treat raw_content as markdown/plain text,
+    then build batchUpdate requests and call Docs API.
+    """
+    # If raw_content itself is JSON containing title+content, parse it
+    parsed = try_parse_title_and_content_from_json_blob(raw_content)
+    if parsed:
+        # parsed: (title, content)
+        _, md_or_text = parsed
+    else:
+        md_or_text = raw_content
+
+    # Build the batchUpdate requests by converting markdown to structured requests.
+    requests = build_docs_requests_from_markdown(md_or_text)
+
+    if not requests:
+        # fallback: simple insert
+        simple_text = (md_or_text.strip() + "\n")
+        requests = [{"insertText": {"location": {"index": 1}, "text": simple_text}}]
+
+    url = f"https://docs.googleapis.com/v1/documents/{document_id}:batchUpdate"
+    headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
+    payload = {"requests": requests}
+    r = requests_post_with_retry(url, headers=headers, json=payload)
+    if r.status_code not in (200, 201):
+        raise Exception(f"Failed to write doc content: {r.status_code} {r.text}")
+    return r.json()
+
+def requests_post_with_retry(url, headers=None, json=None, params=None, timeout=12, retries=1):
+    for attempt in range(retries + 1):
+        try:
+            return requests.post(url, headers=headers, params=params, json=json, timeout=timeout)
+        except requests.exceptions.RequestException as ex:
+            last_exc = ex
+            if attempt >= retries:
+                raise
+    raise last_exc
+
+
+@app.route("/api/google/create-doc-and-share", methods=["POST"])
+def google_create_doc_and_share():
+    """
+    Request body: { loginId, repoName }
+    Flow:
+      - fetch repo details (local helper)
+      - generate document (Gemini)
+      - get Google access token via Descope outbound (google-drive app)
+      - create Google Doc + write content
+      - fetch repo collaborators via GitHub outbound + map to emails in DB
+      - share the doc with those emails (Drive permissions)
+    """
+    body = request.get_json() or {}
+    login_id = body.get("loginId")
+    repo_name = body.get("repoName")
+    if not login_id or not repo_name:
+        return jsonify({"error": "loginId and repoName required"}), 400
+
+    # fetch repo details (local helper)
+    repo_details = fetch_local_repo_details(login_id, repo_name)
+
+    # 1) generate large document content using Gemini
+    try:
+        title, content = gemini_generate_project_document(repo_details)
+    except Exception as e:
+        return jsonify({"error": "gemini_failed", "detail": str(e)}), 500
+
+    # 2) get Google outbound token from Descope
+    try:
+        token_json = get_outbound_token(GOOGLE_DRIVE_OUTBOUND_APP_ID, login_id)
+        google_access_token = extract_access_token(token_json)
+        if not google_access_token:
+            return jsonify({"error": "no_google_access_token", "detail": token_json}), 500
+    except Exception as e:
+        return jsonify({"error": "failed_to_get_google_token", "detail": str(e)}), 500
+
+    # 3) create Google Doc
+    try:
+        doc_id, doc_url = create_google_doc(google_access_token, title)
+    except Exception as e:
+        # detect insufficient scopes from Google error strings and normalize response
+        emsg = str(e)
+        if "insufficient" in emsg.lower() or "permission_denied" in emsg.lower() or "insufficientPermissions" in emsg:
+            return jsonify({"error": "google_insufficient_scope", "message": "Google token lacks required docs/drive scopes", "detail": emsg}), 403
+        return jsonify({"error": "create_doc_failed", "detail": emsg}), 500
+
+    try:
+    # doc_id and doc_url were created with create_google_doc(...)
+        write_resp = write_doc_content_formatted(google_access_token, doc_id, content)
+    except Exception as e:
+        emsg = str(e)
+        if "insufficient" in emsg.lower() or "permission_denied" in emsg.lower():
+            return jsonify({"error": "google_insufficient_scope", "message": "Google token lacks required docs/drive scopes", "detail": emsg}), 403
+        return jsonify({"error": "write_doc_failed", "detail": emsg}), 500
+
+    # 5) determine collaborator emails:
+    shared_emails = []
+    try:
+        # fetch GitHub collaborators via outbound token (requires github outbound)
+        gh_token_json = get_outbound_token("github", login_id)
+        gh_access_token = extract_access_token(gh_token_json)
+        if gh_access_token:
+            owner_login, collaborators = fetch_github_user_and_collaborators(gh_access_token, repo_name)
+            collab_logins = [c.get("login") for c in (collaborators or []) if c.get("login")]
+            # look up emails in DB
+            if collab_logins:
+                docs = users_collection.find({"connectedAccounts.github.login": {"$in": collab_logins}})
+                for d in docs:
+                    em = d.get("email")
+                    if em:
+                        shared_emails.append(em)
+    except Exception as ex:
+        # non-fatal; we can still return docUrl and indicate that sharing failed/was skipped
+        print("Warning: failed to fetch collaborator emails:", ex)
+
+    shared_emails = list(dict.fromkeys(shared_emails))  # dedupe
+
+    # 6) share with collaborators (if any)
+    permission_results = {}
+    if shared_emails:
+        try:
+            permission_results = share_file_with_emails(google_access_token, doc_id, shared_emails, send_notification=True)
+        except Exception as e:
+            # surface share errors but do not treat as fatal
+            permission_results = {"error": str(e)}
+
+    return jsonify({
+        "success": True,
+        "documentId": doc_id,
+        "documentUrl": doc_url,
+        "sharedWith": shared_emails,
+        "permissionResults": permission_results
+    }), 200
+
+
 
 
 if __name__ == "__main__":

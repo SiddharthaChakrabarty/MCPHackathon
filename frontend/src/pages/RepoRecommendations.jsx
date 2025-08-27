@@ -2,6 +2,7 @@
 import React from "react";
 import { useRepo } from "./RepoRouter";
 import YouTubePanel from "../components/YoutubePanel";
+import GooglePanel from "../components/GooglePanel";
 
 export default function RepoRecommendations() {
   const { details, loading, error } = useRepo(); // or your repo context/hook
@@ -13,14 +14,21 @@ export default function RepoRecommendations() {
   return (
     <div className="space-y-6">
       <div className="rounded-xl p-4 bg-gradient-to-br from-gray-900/50 to-gray-800/50 border border-gray-800/50">
-      <h2 className="text-2xl font-bold mb-6">Recommended Learning Videos</h2>
-      <YouTubePanel
-        languages={details.languages || []}
-        frameworks={details.frameworks || []}
-        repoName={details.name}
-        repoDescription={details.description}
-      />
-    </div>
+        <h2 className="text-2xl font-bold mb-6">Recommended Learning Videos</h2>
+        <YouTubePanel
+          languages={details.languages || []}
+          frameworks={details.frameworks || []}
+          repoName={details.name}
+          repoDescription={details.description}
+        />
+
+        <GooglePanel
+          languages={details.languages || []}
+          frameworks={details.frameworks || []}
+          repoName={details.name}
+          repoDescription={details.description}
+        />
+      </div>
     </div>
   );
 }

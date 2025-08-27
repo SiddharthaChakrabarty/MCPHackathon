@@ -64,6 +64,7 @@ export default function ConnectPanel({
             { id: "youtube", title: "YouTube", description: "Curated tutorials & playlists", colorClass: "youtube-bg", Icon: SiYoutube },
             { id: "notion", title: "Notion", description: "Timetables & learning plans", colorClass: "notion-bg", Icon: SiNotion },
             { id: "google-calendar", title: "Google Calendar", description: "Calendar events & availability", colorClass: "google-bg", Icon: SiGoogle },
+            { id: "google-drive", title: "Google Drive", description: "Save curated docs & resources", colorClass: "google-drive-bg", Icon: SiGoogle },
             { id: "spotify", title: "Spotify", description: "Playlists & break scheduling", colorClass: "spotify-bg", Icon: SiSpotify },
             { id: "slack", title: "Slack", description: "Team collaboration & channels", colorClass: "slack-bg", Icon: SiSlack },
             { id: "linkedin", title: "LinkedIn", description: "Professional profile & network", colorClass: "linkedin-bg", Icon: SiLinkedin },
@@ -359,6 +360,8 @@ export default function ConnectPanel({
         .slack-bg { background: linear-gradient(135deg,#111827,#6d28d9); }
         .discord-bg { background: linear-gradient(135deg,#7289da,#99aab5); }
         .linkedin-bg { background: linear-gradient(135deg,#0e76a8,#2b6ea5); }
+        .google-drive-bg { background: linear-gradient(135deg,#0f9d58,#34a853); }
+
       `}</style>
         </div>
     );

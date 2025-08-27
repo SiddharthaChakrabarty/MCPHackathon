@@ -108,6 +108,8 @@ export default function Home() {
     const isSpotifyConnected = !!(connectedMap.spotify === "connected" || connectedMap.spotify === "pending");
     const isSlackConnected = !!(connectedMap.slack === "connected" || connectedMap.slack === "pending");
     const isLinkedinConnected = !!(connectedMap.linkedin === "connected" || connectedMap.linkedin === "pending");
+    const isGoogleDriveConnected = !!(connectedMap["google-drive"] === "connected" || connectedMap["google-drive"] === "pending");
+
 
     function handleScanRepos() {
         window.location.href = "/github-details";
@@ -172,6 +174,7 @@ export default function Home() {
                                         <div className="flex items-center justify-between"><div>YouTube</div><div className="text-emerald-200">{isYoutubeConnected ? "Connected" : "Not connected"}</div></div>
                                         <div className="flex items-center justify-between"><div>Notion</div><div className="text-emerald-200">{isNotionConnected ? "Connected" : "Not connected"}</div></div>
                                         <div className="flex items-center justify-between"><div>Google Calendar</div><div className="text-emerald-200">{isGoogleCalendarConnected ? "Connected" : "Not connected"}</div></div>
+                                        <div className="flex items-center justify-between"><div>Google Drive</div><div className="text-emerald-200">{isGoogleDriveConnected ? "Connected" : "Not connected"}</div></div>
                                         <div className="flex items-center justify-between"><div>Spotify</div><div className="text-emerald-200">{isSpotifyConnected ? "Connected" : "Not connected"}</div></div>
                                         <div className="flex items-center justify-between"><div>Slack</div><div className="text-emerald-200">{isSlackConnected ? "Connected" : "Not connected"}</div></div>
                                         <div className="flex items-center justify-between"><div>LinkedIn</div><div className="text-emerald-200">{isLinkedinConnected ? "Connected" : "Not connected"}</div></div>

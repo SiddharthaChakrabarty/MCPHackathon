@@ -16,10 +16,42 @@ export default function RepoMeetAndCollaborators() {
   const [collaborators, setCollaborators] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  const [creatingDoc, setCreatingDoc] = useState(false);
+  const [docResult, setDocResult] = useState(null);
+  const [docError, setDocError] = useState(null);
+
+
+  async function createDetailedGoogleDocAndShare() {
+    setCreatingDoc(true);
+    setDocResult(null);
+    setDocError(null);
+    try {
+      const res = await fetch("http://localhost:5000/api/google/create-doc-and-share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ loginId: user.userId, repoName }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload?.error || payload?.message || `HTTP ${res.status}`);
+      }
+      setDocResult(payload);
+      // Open doc in new tab if created
+      if (payload?.documentUrl) {
+        window.open(payload.documentUrl, "_blank", "noopener");
+      }
+    } catch (e) {
+      console.error("create doc error", e);
+      setDocError(String(e));
+    } finally {
+      setCreatingDoc(false);
+    }
+  }
+
   // Create Meet
   async function createMeet() {
-    setCreating(true); 
-    setError(null); 
+    setCreating(true);
+    setError(null);
     setMeetInfo(null);
     try {
       const res = await fetch("http://localhost:5000/api/meet/create-and-invite", {
@@ -143,6 +175,36 @@ export default function RepoMeetAndCollaborators() {
           </div>
         )}
       </div>
+      {/* GOOGLE DOCS SECTION */}
+      <div className="rounded-xl p-4 bg-gradient-to-br from-gray-900/50 to-gray-800/50 border border-gray-800/50 mt-6">
+        <h2 className="text-xl font-semibold mb-3">Create & Share Detailed Project Document</h2>
+        <p className="text-sm text-gray-400 mb-4">
+          Generate a polished, multi-section Google Doc that explains the project in depth (architecture, setup, API, roadmap, contribution notes).
+          The doc will be created in your Google Drive and shared with repository collaborators (if we have their emails).
+        </p>
+
+        <div className="flex gap-3 mb-4">
+          <button
+            onClick={createDetailedGoogleDocAndShare}
+            disabled={creatingDoc}
+            className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold disabled:opacity-50"
+          >
+            {creatingDoc ? "Generating & sharing…" : "Create detailed Google Doc & Share"}
+          </button>
+        </div>
+
+        {docResult && (
+          <div className="mt-3 p-3 rounded bg-gray-900/50 border border-sky-600/30 text-sm">
+            <div className="text-emerald-200 font-semibold">Document created</div>
+            <div className="mt-2">URL: <a href={docResult.documentUrl} target="_blank" rel="noreferrer" className="text-sky-300 hover:underline">{docResult.documentUrl}</a></div>
+            <div className="mt-2">Shared with: {docResult.sharedWith && docResult.sharedWith.length ? docResult.sharedWith.join(", ") : "No collaborator emails found"}</div>
+            <pre className="mt-2 text-xs text-gray-300 overflow-auto">{JSON.stringify(docResult.permissionResults || {}, null, 2)}</pre>
+          </div>
+        )}
+
+        {docError && <div className="mt-3 text-sm text-red-400">{docError}</div>}
+      </div>
+
     </div>
   );
 }
