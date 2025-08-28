@@ -2174,7 +2174,185 @@ def github_features_create_issues():
 
     return jsonify({"created": created, "failed": failed}), (200 if not failed else 207)
 
+def _get_github_owner_and_token(login_id):
+    """Return (owner_login, access_token) or raise."""
+    token_json = get_outbound_token("github", login_id)
+    access_token = extract_access_token(token_json)
+    if not access_token:
+        access_token = token_json.get("token", {}).get("accessToken")
+    if not access_token:
+        raise Exception(f"No github access token from Descope: {token_json}")
+    # get user login
+    resp = requests.get("https://api.github.com/user", headers={"Authorization": f"token {access_token}"}, timeout=8)
+    if resp.status_code != 200:
+        raise Exception(f"GitHub user request failed: {resp.status_code} {resp.text}")
+    owner = resp.json().get("login")
+    return owner, access_token
 
+
+@app.route("/api/github/readme/get", methods=["POST"])
+def github_readme_get():
+    """
+    POST { loginId, repoName }
+    Returns: { exists: bool, content: <string markdown>, path, sha } or { exists: false }
+    """
+    body = request.get_json() or {}
+    login_id = body.get("loginId")
+    repo_name = body.get("repoName")
+    if not login_id or not repo_name:
+        return jsonify({"error": "loginId and repoName required"}), 400
+
+    try:
+        owner, access_token = _get_github_owner_and_token(login_id)
+    except Exception as e:
+        return jsonify({"error": "failed_to_get_github_token", "detail": str(e)}), 500
+
+    # Use the repo readme endpoint which finds README with different names
+    url = f"https://api.github.com/repos/{owner}/{repo_name}/readme"
+    r = requests.get(url, headers={"Authorization": f"token {access_token}", "Accept": "application/vnd.github+json"}, timeout=10)
+    if r.status_code == 404:
+        return jsonify({"exists": False})
+    if r.status_code != 200:
+        return jsonify({"error": "failed_fetch_readme", "detail": r.text}), 500
+
+    j = r.json()
+    content_b64 = j.get("content", "")
+    try:
+        content = base64.b64decode(content_b64).decode("utf-8", errors="ignore") if content_b64 else ""
+    except Exception:
+        content = ""
+    return jsonify({
+        "exists": True,
+        "content": content,
+        "path": j.get("path"),
+        "sha": j.get("sha")
+    })
+
+
+@app.route("/api/github/readme/suggest", methods=["POST"])
+def github_readme_suggest():
+    """
+    POST { loginId, repoName }
+    Returns: { suggested: "<markdown>" }
+    If loginId is missing or token retrieval fails, still uses _sample_repo_code_for_analysis fallback where possible.
+    """
+    body = request.get_json() or {}
+    login_id = body.get("loginId")
+    repo_name = body.get("repoName")
+    if not repo_name:
+        return jsonify({"error": "repoName required"}), 400
+
+    access_token = None
+    owner = None
+    try:
+        if login_id:
+            owner, access_token = _get_github_owner_and_token(login_id)
+    except Exception as e:
+        # continue: we can still try to sample via public repo access if desired, but fall back gracefully
+        print("warning: couldn't get github token for suggestion:", e)
+
+    # sample repo files to include in prompt (tries authenticated if token provided)
+    sample_files = []
+    if access_token and owner:
+        sample_files = _sample_repo_code_for_analysis(access_token, owner, repo_name, max_files=6)
+    else:
+        # if unauthenticated, try unauthenticated repo content (best-effort)
+        try:
+            # try public repository's tree (best-effort, may 404)
+            tree_url = f"https://api.github.com/repos/{repo_name}/git/trees/main?recursive=1"
+            tr = requests.get(tree_url, timeout=8)
+            if tr.status_code == 200:
+                tree = tr.json().get("tree", [])
+                files = []
+                for item in tree:
+                    if item.get("type") != "blob":
+                        continue
+                    path = item.get("path", "")
+                    if any(path.endswith(s) for s in (".md", ".py", ".js", ".jsx", ".ts", ".tsx", ".html")):
+                        # attempt to fetch content via raw.githubusercontent
+                        raw_url = f"https://raw.githubusercontent.com/{repo_name}/main/{path}"
+                        fr = requests.get(raw_url, timeout=6)
+                        if fr.status_code == 200:
+                            files.append({"path": path, "content": fr.text[:1600]})
+                        if len(files) >= 4:
+                            break
+                sample_files = files
+        except Exception:
+            sample_files = []
+
+    # Build prompt for Gemini: ask for README.md in markdown with typical sections
+    sample_text = "\n\n".join([f"File: {f['path']}\n{f['content']}" for f in (sample_files or [])])
+    prompt = f"""
+You are an expert software engineer and technical writer. Given the repository name "{repo_name}" and the following code samples, write a concise, practical README.md in Markdown that a developer can read to understand the project, install and run it, see a simple usage example, run tests (if applicable), and contribute. Include sections where appropriate: Title, Short description (1-2 lines), Installation, Usage/Examples, Contributing, License (suggest MIT if unknown). Keep the README under ~1500-2000 words and produce valid Markdown only (no extra commentary). Do not add ```markdown blocks around the content; return raw markdown only. The readme should explain features and usage based on the code samples, but do not hallucinate features or details not inferable from the code. If the code is insufficient to determine usage, keep those sections brief and generic. Use GitHub-flavored markdown where appropriate. Do not explain the endpoints in detail.
+
+Repository name: {repo_name}
+
+Code samples (if any):
+{sample_text}
+
+README.md:
+"""
+    suggested = "No suggestion available."
+    try:
+        model = genai.GenerativeModel("gemini-2.0-flash")
+        resp = model.generate_content(prompt)
+        suggested = (resp.text or "").strip()
+        # sanitize: ensure markdown-only
+        # If Gemini returns extra commentary, take full text — client will render it as README.md
+    except Exception as e:
+        print("gemini readme generate error:", e)
+        suggested = "No suggestion available."
+
+    return jsonify({"suggested": suggested})
+
+
+@app.route("/api/github/readme/apply", methods=["POST"])
+def github_readme_apply():
+    """
+    POST { loginId, repoName, content, commitMessage? }
+    Creates or updates README.md in the repository using the user's GitHub token (via Descope).
+    """
+    body = request.get_json() or {}
+    login_id = body.get("loginId")
+    repo_name = body.get("repoName")
+    content = body.get("content") or ""
+    commit_message = body.get("commitMessage") or f"Add/Update README.md via futurecommit"
+
+    if not login_id or not repo_name or not content:
+        return jsonify({"error": "loginId, repoName and content required"}), 400
+
+    try:
+        owner, access_token = _get_github_owner_and_token(login_id)
+    except Exception as e:
+        return jsonify({"error": "failed_to_get_github_token", "detail": str(e)}), 500
+
+    # Check if README exists to obtain sha for update
+    readme_url = f"https://api.github.com/repos/{owner}/{repo_name}/readme"
+    r = requests.get(readme_url, headers={"Authorization": f"token {access_token}", "Accept": "application/vnd.github+json"}, timeout=10)
+
+    sha = None
+    path = "README.md"
+    if r.status_code == 200:
+        j = r.json()
+        sha = j.get("sha")
+        path = j.get("path") or "README.md"
+
+    put_url = f"https://api.github.com/repos/{owner}/{repo_name}/contents/{path}"
+    payload = {
+        "message": commit_message,
+        "content": base64.b64encode(content.encode("utf-8")).decode("utf-8"),
+    }
+    if sha:
+        payload["sha"] = sha
+
+    put_resp = requests.put(put_url, headers={"Authorization": f"token {access_token}", "Accept": "application/vnd.github+json"}, json=payload, timeout=15)
+    if put_resp.status_code not in (200, 201):
+        return jsonify({"error": "failed_to_create_update_readme", "status": put_resp.status_code, "detail": put_resp.text}), 500
+
+    pj = put_resp.json()
+    file_info = pj.get("content") or {}
+    html_url = file_info.get("html_url") or f"https://github.com/{owner}/{repo_name}/blob/main/{path}"
+    return jsonify({"success": True, "html_url": html_url, "path": path})
 
 
 
