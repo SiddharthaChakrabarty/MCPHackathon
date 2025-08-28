@@ -1557,6 +1557,7 @@ def gemini_generate_project_document(repo_details):
         model = genai.GenerativeModel("gemini-2.0-flash")
         resp = model.generate_content(prompt)
         text = resp.text.strip()
+        text = text.replace("*", " ")
         # robustly extract the first JSON object found
         start = text.find("{")
         end = text.rfind("}")
@@ -1674,11 +1675,6 @@ def try_parse_title_and_content_from_json_blob(maybe_json_str):
             print("JSON parse error:", e)
             return None
     return None
-
-import re
-import json
-import requests
-
 
 def _split_into_blocks_from_markdown(md_text):
     """
@@ -1851,7 +1847,7 @@ def write_doc_content_formatted(access_token: str, document_id: str, raw_content
         reqs.insert(1, {
             "updateParagraphStyle": {
                 "range": {"startIndex": 1, "endIndex": 1 + len(title_text)},
-                "paragraphStyle": {"namedStyleType": "HEADING_1"},
+                "paragraphStyle": {"namedStyleType": "HEADING_3"},
                 "fields": "namedStyleType"
             }
         })
@@ -1981,6 +1977,203 @@ def google_create_doc_and_share():
         "sharedWith": shared_emails,
         "permissionResults": permission_results
     }), 200
+
+
+# --- Helpers: robust JSON extraction from model output ---
+def _extract_first_json_block(text: str):
+    """Return Python object parsed from first JSON object/array found in text, or None."""
+    if not text:
+        return None
+    # try to find an array '[' or object '{'
+    first_obj = None
+    for opener, closer in [('{', '}'), ('[', ']')]:
+        start = text.find(opener)
+        end = text.rfind(closer)
+        if start != -1 and end != -1 and end > start:
+            candidate = text[start:end+1]
+            try:
+                return json.loads(candidate)
+            except Exception:
+                # attempt small cleanups then try again
+                try:
+                    cleaned = candidate.encode('utf-8', 'surrogateescape').decode('unicode_escape', 'ignore')
+                    return json.loads(cleaned)
+                except Exception:
+                    continue
+    return None
+
+# --- Helper: sample repository files (like you used elsewhere) ---
+def _sample_repo_code_for_analysis(access_token: str, owner: str, repo_name: str, max_files=8):
+    """Return list of short file snippets useful for analysis"""
+    headers = {"Authorization": f"token {access_token}", "Accept": "application/vnd.github+json", "User-Agent": "descope-demo-app"}
+    tree_url = f"https://api.github.com/repos/{owner}/{repo_name}/git/trees/main?recursive=1"
+    r = requests.get(tree_url, headers=headers, timeout=10)
+    files = []
+    if r.status_code == 200:
+        tree = r.json().get("tree", [])
+        for item in tree:
+            if item.get("type") != "blob":
+                continue
+            path = item.get("path", "")
+            if any(path.endswith(s) for s in (".py", ".js", ".jsx", ".ts", ".tsx", ".md", ".java", ".go", ".rb", ".php", ".html", ".css", ".sh")):
+                # fetch content
+                file_url = f"https://api.github.com/repos/{owner}/{repo_name}/contents/{quote_plus(path)}"
+                fr = requests.get(file_url, headers=headers, timeout=8)
+                if fr.status_code == 200:
+                    fd = fr.json()
+                    content_b64 = fd.get("content") or ""
+                    try:
+                        snippet = base64.b64decode(content_b64).decode("utf-8", errors="ignore")
+                        # keep first N chars
+                        files.append({"path": path, "content": snippet[:1600]})
+                    except Exception:
+                        continue
+                if len(files) >= max_files:
+                    break
+    return files
+
+# --- Gemini-based generator for feature ideas ---
+def _generate_feature_ideas_with_gemini(sample_files, repo_name: str, open_source: bool, top_k=8):
+    """
+    Given sampled files (list of {path, content}), ask Gemini to return JSON array of feature suggestions:
+      [{ "title": "...", "description": "...", "labels": ["enhancement","docs"], "estimate": "2d" }, ...]
+    Returns parsed list or fallback list of simple suggestions.
+    """
+    sample_text = "\n\n".join([f"File: {f['path']}\n{f['content']}" for f in (sample_files or [])])
+    prompt = (
+        "You are an expert engineering manager and product designer. Given the repository code snippets below, "
+        "generate a prioritized list of practical, implementable feature ideas (not vague wishes) that would "
+        "improve this project for users and maintainers. For each feature provide a short title (6-10 words), "
+        "a 1-3 sentence implementation description, optional suggested GitHub labels (as an array), and a rough estimate "
+        "(e.g., '2d', '4h'). Return EXACTLY one JSON array only (no extra commentary). Example item:\n\n"
+        '[{"title":"Add CI with GitHub Actions","description":"Add a GitHub Actions workflow that runs tests...","labels":["ci","automation"],"estimate":"1d"}, ...]\n\n'
+        f"Repo name: {repo_name}\nOpen source: {open_source}\n\nCode samples:\n{sample_text}\n\nJSON:"
+    )
+    try:
+        model = genai.GenerativeModel("gemini-2.0-flash")
+        resp = model.generate_content(prompt)
+        text = (resp.text or "").strip()
+        parsed = _extract_first_json_block(text)
+        if isinstance(parsed, list) and parsed:
+            # normalize items
+            out = []
+            for i, it in enumerate(parsed):
+                t = it.get("title") if isinstance(it, dict) else str(it)
+                d = it.get("description") if isinstance(it, dict) else ""
+                labels = it.get("labels") if isinstance(it, dict) else []
+                est = it.get("estimate") if isinstance(it, dict) else ""
+                out.append({
+                    "id": f"f{i}-{abs(hash(t))%100000}",
+                    "title": (t or f"Feature {i+1}").strip(),
+                    "description": (d or "").strip(),
+                    "labels": labels if isinstance(labels, list) else [],
+                    "estimate": est or ""
+                })
+            return out
+    except Exception as e:
+        print("gemini feature generation failed:", e)
+
+    # fallback simple heuristics: return small feature templates using repo_name
+    fallback = [
+        {"id": "f-fallback-1", "title": "Add README badges and CI", "description": "Add GitHub Actions to run tests and include badges (build/test/coverage) in README.", "labels": ["ci"], "estimate": "1d"},
+        {"id": "f-fallback-2", "title": "Improve contributing docs", "description": "Add CONTRIBUTING.md with guidelines for PRs, coding style and testing.", "labels": ["docs"], "estimate": "4h"},
+        {"id": "f-fallback-3", "title": "Add issue templates", "description": "Provide bug and feature request templates to improve triage.", "labels": ["enhancement"], "estimate": "2h"}
+    ]
+    return fallback
+
+# --- Route: generate feature ideas ---
+@app.route("/api/github/features/generate", methods=["POST"])
+def github_features_generate():
+    body = request.get_json() or {}
+    login_id = body.get("loginId")
+    repo_name = body.get("repoName")
+    open_source = bool(body.get("openSource", True))
+    if not login_id or not repo_name:
+        return jsonify({"error": "loginId and repoName required"}), 400
+
+    # get outbound github token for the user
+    try:
+        token_json = get_outbound_token("github", login_id)
+        access_token = extract_access_token(token_json)
+        if not access_token:
+            # sometimes token_json has nested token field
+            access_token = token_json.get("token", {}).get("accessToken")
+        if not access_token:
+            return jsonify({"error": "no github access token returned", "detail": token_json}), 500
+    except Exception as e:
+        return jsonify({"error": "failed_to_get_github_token", "detail": str(e)}), 500
+
+    # identify owner/login (authenticated user)
+    try:
+        user_resp = requests.get("https://api.github.com/user", headers={"Authorization": f"token {access_token}"}, timeout=8)
+        if user_resp.status_code != 200:
+            return jsonify({"error": "github_user_failed", "detail": user_resp.text}), 500
+        owner = user_resp.json().get("login")
+    except Exception as e:
+        return jsonify({"error": "github_user_failed", "detail": str(e)}), 500
+
+    # sample repo code
+    sample_files = _sample_repo_code_for_analysis(access_token, owner, repo_name, max_files=8)
+
+    # generate ideas with Gemini
+    features = _generate_feature_ideas_with_gemini(sample_files, repo_name, open_source, top_k=8)
+
+    return jsonify({"features": features})
+
+# --- Helper: create GitHub issues on behalf of user using their outbound token ---
+def _create_github_issues(access_token: str, owner: str, repo_name: str, issues: list):
+    """
+    issues: list of { title, body, labels: [..] (optional) }
+    Returns created list and failed list.
+    """
+    headers = {"Authorization": f"token {access_token}", "Accept": "application/vnd.github+json", "User-Agent": "descope-demo-app"}
+    created = []
+    failed = []
+    for it in issues:
+        payload = {"title": it.get("title", "Untitled"), "body": it.get("body", "")}
+        if it.get("labels"):
+            payload["labels"] = it.get("labels")
+        url = f"https://api.github.com/repos/{owner}/{repo_name}/issues"
+        r = requests.post(url, headers=headers, json=payload, timeout=12)
+        if r.status_code in (200, 201):
+            j = r.json()
+            created.append({"title": payload["title"], "issueNumber": j.get("number"), "url": j.get("html_url")})
+        else:
+            failed.append({"title": payload["title"], "status": r.status_code, "detail": r.text})
+    return created, failed
+
+@app.route("/api/github/features/create-issues", methods=["POST"])
+def github_features_create_issues():
+    body = request.get_json() or {}
+    login_id = body.get("loginId")
+    repo_name = body.get("repoName")
+    issues = body.get("issues") or []  # [{title, body, labels?}, ...]
+    open_source = bool(body.get("openSource", True))
+    if not login_id or not repo_name or not issues:
+        return jsonify({"error": "loginId, repoName and issues required"}), 400
+
+    # get github token via Descope outbound
+    try:
+        token_json = get_outbound_token("github", login_id)
+        access_token = extract_access_token(token_json)
+        if not access_token:
+            access_token = token_json.get("token", {}).get("accessToken")
+        if not access_token:
+            return jsonify({"error": "no github token from descope", "detail": token_json}), 500
+    except Exception as e:
+        return jsonify({"error": "failed_to_get_github_token", "detail": str(e)}), 500
+
+    # get owner login
+    user_resp = requests.get("https://api.github.com/user", headers={"Authorization": f"token {access_token}"}, timeout=8)
+    if user_resp.status_code != 200:
+        return jsonify({"error": "github_user_failed", "detail": user_resp.text}), 500
+    owner = user_resp.json().get("login")
+
+    # Create issues
+    created, failed = _create_github_issues(access_token, owner, repo_name, issues)
+
+    return jsonify({"created": created, "failed": failed}), (200 if not failed else 207)
+
 
 
 
