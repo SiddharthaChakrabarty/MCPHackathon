@@ -113,3 +113,9 @@ AI powered platform for Github repository collaboration
 ## License
 
 MIT License (Suggesting as license type is not mentioned in code provided)
+
+---
+
+## Release notes
+
+Auto-generated release notes document: [View release notes](https://docs.google.com/document/d/1x4HqILOPTzIUB-ON9VzlDz_-nYi_3OcuLdMm7MkMyA4/edit)
