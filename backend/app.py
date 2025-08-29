@@ -25,6 +25,7 @@ LINKEDIN_OUTBOUND_APP_ID = os.getenv("LINKEDIN_OUTBOUND_APP_ID", "linkedin")
 GOOGLE_SEARCH_CX = os.getenv("GOOGLE_SEARCH_CX", '40d822774ab9d4bf1')
 GOOGLE_DRIVE_OUTBOUND_APP_ID = os.getenv("GOOGLE_DRIVE_OUTBOUND_APP_ID", "google-drive")
 CUSTOM_SEARCH_API_KEY = os.getenv("CUSTOM_SEARCH_API_KEY", "AIzaSyA1p7XHFO-Y6ZmmvOuRTU4X6y5soG-zeEs")
+SLACK_OUTBOUND_APP_ID = os.getenv("SLACK_OUTBOUND_APP_ID", "slack")  # set your Descope outbound app id for Slack
 
 # MongoDB connection
 client = pymongo.MongoClient(MONGO_URI)
@@ -1970,13 +1971,58 @@ def google_create_doc_and_share():
             # surface share errors but do not treat as fatal
             permission_results = {"error": str(e)}
 
+    
+
+    slack_post_result = None
+    slack_channel_id = body.get("slackChannelId") or body.get("channelId")
+    if slack_channel_id:
+        try:
+            # Obtain Slack access token via Descope outbound (SLACK_OUTBOUND_APP_ID)
+            slack_token_json = get_outbound_token(SLACK_OUTBOUND_APP_ID, login_id)
+            slack_access_token = extract_access_token(slack_token_json)
+            if not slack_access_token:
+                slack_post_result = {"error": "no_slack_access_token", "detail": slack_token_json}
+            else:
+                # Compose a friendly message with doc URL
+                msg_text = f"Project document created: {doc_url}"
+                # small blocks payload (optional, Slack will show link preview)
+                blocks = [
+                    {"type": "section", "text": {"type": "mrkdwn", "text": f"*Project document created*\n<{doc_url}|Open document>"}},
+                    {"type": "context", "elements": [{"type": "mrkdwn", "text": f"Repository: {repo_name}"}]}
+                ]
+                status_code, resp = slack_post_message(slack_access_token, slack_channel_id, msg_text, blocks=blocks)
+                slack_post_result = {"status_code": status_code, "response": resp}
+        except Exception as ex:
+            slack_post_result = {"error": "slack_post_exception", "detail": str(ex)}
+
+    # --- END Slack post integration ---
+
+    # Finally, return the existing response plus slack_post_result
     return jsonify({
         "success": True,
         "documentId": doc_id,
         "documentUrl": doc_url,
         "sharedWith": shared_emails,
-        "permissionResults": permission_results
+        "permissionResults": permission_results,
+        "slackPost": slack_post_result
     }), 200
+
+def slack_post_message(slack_token: str, channel_id: str, text: str, blocks: list = None):
+    """
+    Post a simple message to a Slack channel. Returns (status_code, parsed_json).
+    Requires chat:write scope for the token provided.
+    """
+    url = "https://slack.com/api/chat.postMessage"
+    headers = {"Authorization": f"Bearer {slack_token}", "Content-Type": "application/json"}
+    body = {"channel": channel_id, "text": text}
+    if blocks:
+        body["blocks"] = blocks
+    r = requests.post(url, headers=headers, json=body, timeout=12)
+    try:
+        return r.status_code, r.json()
+    except Exception:
+        return r.status_code, {"raw": r.text}
+
 
 
 # --- Helpers: robust JSON extraction from model output ---
@@ -2680,6 +2726,168 @@ def api_create_release_notes_doc_and_append():
         "readmeUpdate": readme_update_status
     }), 200
 
+
+
+def slack_lookup_user_id_by_email(slack_token: str, email: str):
+    """
+    Returns Slack user id for the given email, or None if not found.
+    """
+    url = "https://slack.com/api/users.lookupByEmail"
+    headers = {"Authorization": f"Bearer {slack_token}"}
+    params = {"email": email}
+    r = requests.get(url, headers=headers, params=params, timeout=8)
+    print(r.json())
+    try:
+        payload = r.json()
+    except Exception:
+        return None, {"error": "invalid_response", "status": r.status_code, "text": r.text}
+    if not payload.get("ok"):
+        # if user not found, Slack returns ok=false with error='users_not_found'
+        return None, payload
+    return payload.get("user", {}).get("id"), payload
+
+def slack_create_channel(slack_token: str, channel_name: str, is_private=False):
+    """
+    Creates a Slack channel (conversations.create). Returns (channel_id, response_json).
+    """
+    url = "https://slack.com/api/conversations.create"
+    headers = {"Authorization": f"Bearer {slack_token}", "Content-Type": "application/json"}
+    # Slack expects lowercase name, no spaces
+    name = channel_name.strip().lower().replace(" ", "-")
+    body = {"name": name, "is_private": bool(is_private)}
+    r = requests.post(url, headers=headers, json=body, timeout=10)
+    print(r.json())
+    try:
+        payload = r.json()
+    except Exception:
+        raise Exception(f"Slack create channel invalid response: {r.status_code} {r.text}")
+    if not payload.get("ok"):
+        raise Exception(f"Slack create failed: {payload.get('error')}")
+    # channel object expected
+    channel = payload.get("channel", {})
+    return channel.get("id"), payload
+
+def slack_invite_users_to_channel(slack_token: str, channel_id: str, user_ids: list):
+    """
+    Invites one or more Slack users (by id) to a channel. Returns API response.
+    Slack API accepts comma-separated user ids (max ~100).
+    """
+    if not user_ids:
+        return {"ok": True, "invited": []}
+    url = "https://slack.com/api/conversations.invite"
+    headers = {"Authorization": f"Bearer {slack_token}", "Content-Type": "application/json"}
+    body = {"channel": channel_id, "users": ",".join(user_ids)}
+    r = requests.post(url, headers=headers, json=body, timeout=12)
+    try:
+        payload = r.json()
+    except Exception:
+        raise Exception(f"Slack invite invalid response: {r.status_code} {r.text}")
+    if not payload.get("ok"):
+        # note: sometimes invites partially succeed or error with 'already_in_channel'
+        return payload
+    return payload
+
+@app.route("/api/slack/create-channel", methods=["POST"])
+def api_slack_create_channel():
+    """
+    Request body: { loginId, repoName, channelName, isPrivate? }
+    Flow:
+      - obtain Slack access token via Descope outbound app for Slack
+      - obtain GitHub token and list collaborators
+      - map collaborator GitHub logins to emails (users_collection)
+      - map emails to Slack user IDs via users.lookupByEmail
+      - create channel
+      - invite mapped Slack users (existing)
+      - return a report { channelId, invited: [...], missingEmails: [...], slackResponses... }
+    """
+    body = request.get_json() or {}
+    login_id = body.get("loginId")
+    repo_name = body.get("repoName")
+    channel_name = body.get("channelName")
+    is_private = bool(body.get("isPrivate", False))
+
+    if not login_id or not repo_name or not channel_name:
+        return jsonify({"error": "loginId, repoName, channelName required"}), 400
+
+    # 1) get Slack token from Descope outbound
+    try:
+        slack_token_json = get_outbound_token(SLACK_OUTBOUND_APP_ID, login_id)
+        slack_access_token = extract_access_token(slack_token_json)
+        if not slack_access_token:
+            return jsonify({"error": "no_slack_access_token", "detail": slack_token_json}), 500
+    except Exception as e:
+        return jsonify({"error": "failed_to_retrieve_slack_token", "detail": str(e)}), 500
+
+    # 2) get GitHub token + collaborators
+    try:
+        gh_token_json = get_outbound_token("github", login_id)
+        gh_access_token = extract_access_token(gh_token_json)
+        if not gh_access_token:
+            return jsonify({"error": "no_github_access_token", "detail": gh_token_json}), 500
+    except Exception as e:
+        return jsonify({"error": "failed_to_retrieve_github_token", "detail": str(e)}), 500
+
+    try:
+        owner_login, collaborators = fetch_github_user_and_collaborators(gh_access_token, repo_name)
+    except Exception as e:
+        return jsonify({"error": "failed_to_list_collaborators", "detail": str(e)}), 500
+
+    collab_logins = [c.get("login") for c in (collaborators or []) if c.get("login")]
+    # 3) map to emails from your users_collection
+    emails = []
+    if collab_logins:
+        try:
+            docs = users_collection.find({"connectedAccounts.github.login": {"$in": collab_logins}})
+            for d in docs:
+                em = d.get("email")
+                if em:
+                    emails.append(em)
+        except Exception as e:
+            print("DB lookup error mapping collaborators to emails:", e)
+
+    emails = list(dict.fromkeys(emails))  # dedupe
+
+    # 4) map emails to slack user ids
+    slack_user_ids = []
+    missing_emails = []
+    lookup_details = {}
+    for em in emails:
+        try:
+            uid, resp = slack_lookup_user_id_by_email(slack_access_token, em)
+            lookup_details[em] = resp
+            if uid:
+                slack_user_ids.append(uid)
+            else:
+                missing_emails.append(em)
+        except Exception as e:
+            lookup_details[em] = {"error": str(e)}
+            missing_emails.append(em)
+
+    # 5) create channel
+    try:
+        channel_id, create_resp = slack_create_channel(slack_access_token, channel_name, is_private)
+    except Exception as e:
+        return jsonify({"error": "slack_create_failed", "detail": str(e)}), 500
+
+    # 6) invite users (best-effort)
+    invite_result = None
+    try:
+        if slack_user_ids:
+            invite_result = slack_invite_users_to_channel(slack_access_token, channel_id, slack_user_ids)
+            # if API returned ok false, include it but do not treat as fatal
+    except Exception as e:
+        invite_result = {"error": str(e)}
+
+    return jsonify({
+        "success": True,
+        "channelId": channel_id,
+        "createdChannelResponse": create_resp,
+        "invited": slack_user_ids,
+        "inviteResult": invite_result,
+        "emailsMapped": emails,
+        "missingEmails": missing_emails,
+        "lookupDetails": lookup_details
+    }), 200
 
 
 
