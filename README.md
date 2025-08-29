@@ -119,3 +119,9 @@ MIT License (Suggesting as license type is not mentioned in code provided)
 ## Release notes
 
 Auto-generated release notes document: [View release notes](https://docs.google.com/document/d/1x4HqILOPTzIUB-ON9VzlDz_-nYi_3OcuLdMm7MkMyA4/edit)
+
+---
+
+## Release notes
+
+Auto-generated release notes document: [View release notes](https://docs.google.com/document/d/1I_Z2WAE-h3cxdel1zhRIEYAtWKYlkz7Q0NhhW7kebLg/edit)
