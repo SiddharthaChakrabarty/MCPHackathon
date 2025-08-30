@@ -73,7 +73,7 @@ FutureCommit provides an AI-driven ecosystem that simplifies collaboration, docu
 
 ---
 
-## 🔑 User Onboarding & GitHub Analysis  
+## User Onboarding & GitHub Analysis  
 
 <img width="1195" height="670" alt="image" src="https://github.com/user-attachments/assets/b0b11fce-f88f-4c67-b9b7-9c6a46158c46" />
 
@@ -81,14 +81,14 @@ FutureCommit ensures a smooth and secure onboarding experience for users while i
 
 | Step                          | Description |
 |-------------------------------|-------------|
-| **👤 User Authentication**     | Users sign up or sign in via **Descope**, ensuring secure and seamless authentication. |
-| **📦 Data Storage**            | User details (Email ID & GitHub username) are securely stored in **MongoDB** for easy reference and analysis. |
-| **🔗 GitHub Integration**      | Using the **Descope GitHub Outbound App**, FutureCommit connects user accounts with GitHub repositories. |
-| **🤖 Repo Analysis**           | Once connected, repositories are analyzed by **LangGraph pipelines**, enabling auto-generation of README files, onboarding docs, and release notes. |
+| **User Authentication**     | Users sign up or sign in via **Descope**, ensuring secure and seamless authentication. |
+| **Data Storage**            | User details (Email ID & GitHub username) are securely stored in **MongoDB** for easy reference and analysis. |
+| **GitHub Integration**      | Using the **Descope GitHub Outbound App**, FutureCommit connects user accounts with GitHub repositories. |
+| **Repo Analysis**           | Once connected, repositories are analyzed by **LangGraph pipelines**, enabling auto-generation of README files, onboarding docs, and release notes. |
 
 ---
 
-✅ This flow ensures **secure onboarding, persistent user identity, and intelligent repo insights**, forming the backbone of FutureCommit’s automation pipeline.  
+This flow ensures **secure onboarding, persistent user identity, and intelligent repo insights**, forming the backbone of FutureCommit’s automation pipeline.  
 
 ---
 
