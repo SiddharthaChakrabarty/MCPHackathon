@@ -4,7 +4,7 @@
 
 ---
 
-## 👥 Team  
+## Team  
 - **Team Name**: CodeLatte  
 - **Members**:  
   - Sneha Jain  
@@ -144,14 +144,12 @@ FutureCommit provides an AI-driven ecosystem that simplifies collaboration, docu
 
 **FutureCommit ensures projects remain structured, transparent, and collaborative — reducing friction for developers and maximizing productivity.**  
 
-
 ---
 
 
 ## User Onboarding & GitHub Analysis  
 
 <img width="1195" height="672" alt="image" src="https://github.com/user-attachments/assets/6720ac58-d15b-47d7-b3e3-1f5906d9e589" />
-
 
 FutureCommit simplifies the onboarding process and integrates deeply with GitHub to provide automated insights and documentation.  
 
@@ -160,38 +158,117 @@ FutureCommit simplifies the onboarding process and integrates deeply with GitHub
 | **User Authentication**     | Users sign up or log in using **Descope**, ensuring secure access. |
 | **Data Storage**            | User details (Email ID & GitHub username) are securely stored in **MongoDB** for identity management. |
 | **GitHub Integration**      | Through the **Descope GitHub Outbound App**, user accounts are linked with GitHub repositories. |
-| **Repo Analysis**           | **LangGraph** analyzes the repositories, identifying missing details and generating onboarding docs, release notes, and README enhancements. |
+| **Repo Analysis**           | **LangGraph** analyzes the repositories, identifying missing descriptions & READMEs. |
 | **Auto-Generated Docs**     | The analysis produces **missing descriptions and README files**, which are appended directly to the repositories. |
 
 ---
 
 This flow ensures **secure onboarding, persistent user identity, and intelligent GitHub repo analysis** powered by LangGraph automation.  
 
+---
+## AI-Powered Onboarding & Release Notes  
+
+<img width="1195" height="672" alt="image" src="https://github.com/user-attachments/assets/eabb5274-d8ef-48fc-968b-b6c34194db50" />
+
+
+FutureCommit leverages AI and automation to streamline onboarding and release documentation.  
+
+| Step                          | Description |
+|-------------------------------|-------------|
+| **Repo & Commit Analysis**   | **LangGraph** scans repositories and commit history to identify important changes. |
+| **Auto-Generated Docs**      | Generates structured **Onboarding Docs** and **Release Notes**. |
+| **GitHub & README Updates**  | Updates are appended to **README files** directly in repositories. |
+| **Slack Integration**        | Through the **Descope Slack Outbound App**, release docs are shared automatically in project channels. |
+| **Identity Management**      | **MongoDB** retrieves collaborator details (GitHub username → Email ID) for Slack automation. |
 
 ---
 
-
-## Technology Stack  
-
-| Layer / Component       | Technology / Tool |
-|--------------------------|-------------------|
-| **Authentication**       | Descope (Signup/Signin Auth Flow) |
-| **Backend Framework**    | Flask (for integration handling) |
-| **Database**             | MongoDB (storing user GitHub & email IDs) |
-| **AI / Analysis**        | LangGraph (for generating READMEs, onboarding docs, release notes, blogs) |
-| **Visualization**        | Recharts (commit history & insights visualization) |
-| **Collaboration**        | Slack Outbound App, Google Meet Outbound App |
-| **Knowledge Curation**   | YouTube Outbound App, Google Drive Outbound App, Google Outbound App |
-| **Social Integration**   | LinkedIn Outbound App |
-| **Version Control**      | GitHub (integration via Descope GitHub Outbound App) |
-| **Programming Language** | JavaScript & Python |
-| **API Communication**    | REST APIs|
-| **Security**             | Descope (OAuth, secure auth flow) |
-| **Logging & Monitoring** | Integrated via backend + cloud provider logs |
+This flow ensures **faster onboarding, clear release tracking, and seamless sharing across GitHub and Slack.**
 
 ---
 
-This stack ensures **secure authentication, smooth integrations, automated documentation, and centralized collaboration**, making FutureCommit scalable and developer-friendly.
+## Seamless Collaboration & Project Update  
+
+<img width="1195" height="672" alt="image" src="https://github.com/user-attachments/assets/e44fc8b6-1e0b-4688-b208-c6562065c2d4" />
+
+FutureCommit enhances collaboration by automating communication and project updates.  
+
+| Step                          | Description |
+|-------------------------------|-------------|
+| **Collaborator Fetch**       | **MongoDB + GitHub** fetch collaborator data securely. |
+| **Meet Scheduling**          | **Descope Google Meet Outbound App** auto-generates meeting links and emails them to contributors. |
+| **Slack Automation**         | **Descope Slack Outbound App** creates dedicated channels for real-time collaboration. |
+| **Project Updates**          | **LangGraph** generates concise **project update summaries**. |
+| **LinkedIn Integration**     | **Descope LinkedIn Outbound App** posts instant updates to LinkedIn for wider visibility. |
+
+---
+
+This flow ensures **seamless collaboration with instant meetings, Slack communication, and AI-driven updates across platforms.**
+
+---
+
+## Learning Resources  
+
+<img width="1195" height="672" alt="image" src="https://github.com/user-attachments/assets/0e48dfe0-a4f9-4bc2-9a41-d391a8fbe8f6" />
+
+FutureCommit supports contributor growth with curated AI-powered learning recommendations.  
+
+| Step                          | Description |
+|-------------------------------|-------------|
+| **Repo Analysis**            | **LangGraph** analyzes project tech stack from GitHub repos. |
+| **YouTube Suggestions**      | Generates recommended **YouTube videos** based on technologies used. |
+| **Google Blogs**             | Suggests relevant **Google Blogs** and developer articles. |
+| **Playlists & Collections**  | **Descope YouTube Outbound App** creates playlists, and **Descope Google Drive Outbound App** organizes blogs into Drive. |
+| **Resource Sharing**         | Contributors instantly access curated playlists and collections. |
+
+---
+
+This flow ensures contributors **quickly upskill with project-relevant blogs, videos, and curated learning materials.**
+
+---
+
+## Tech Stack  
+
+<img width="1195" height="672" alt="image" src="https://github.com/user-attachments/assets/7658086f-2d8b-42f2-973a-7f0e0f7a0dec" />
+
+FutureCommit is built on a modern tech stack combining **AI, automation, and scalable deployment**.  
+
+| Category                     | Technologies |
+|------------------------------|---------------|
+| **Frontend**                | React, Tailwind CSS |
+| **Backend**                 | Flask, Python |
+| **Database & Authentication** | MongoDB, Descope |
+| **AI & Visualization**      | LangGraph, Recharts |
+| **Outbound Apps**           | GitHub, Google Docs, Slack, Google, YouTube, LinkedIn, Google Drive, Google Meet |
+| **Deployment**              | Vercel |
+
+---
+
+This stack ensures **secure authentication, intelligent AI-powered insights, and smooth deployment** with powerful integration options.
+
+---
+
+## Descope Integrations  
+
+<img width="1195" height="672" alt="image" src="https://github.com/user-attachments/assets/fd6693b3-45a9-4798-b5d7-6d8e78bef2d8" />
+
+Descope powers authentication and seamless outbound integrations, enabling FutureCommit to automate tasks across platforms.  
+
+| Integration                  | Purpose |
+|------------------------------|---------|
+| **GitHub Outbound App**     | Fetches user repository details for AI-driven analysis. |
+| **Google Docs Outbound App** | Generates **onboarding docs** & **release notes** automatically. |
+| **Slack Outbound App**      | Facilitates communication between collaborators. |
+| **YouTube Outbound App**    | Creates playlists of recommended learning videos. |
+| **Google Drive Outbound App** | Organizes collections of Google blogs and resources. |
+| **Google Outbound App**     | Fetches blog/article suggestions relevant to repo tech stack. |
+| **LinkedIn Outbound App**   | Posts automated **project updates** for visibility. |
+| **Google Meet Outbound App** | Auto-generates meeting links and shares with collaborators. |
+| **Descope Authentication**  | Provides secure **sign-up / sign-in flow** for identity management. |
+
+---
+
+This integration ensures **frictionless authentication and end-to-end automation** across collaboration, learning, and release workflows.
 
 ---
 
