@@ -33,7 +33,8 @@ Powered by **Descope authentication**, **LangGraph AI pipelines**, and **MongoDB
 
 ## Problem Statement  
 
-<img width="1051" height="587" alt="image" src="https://github.com/user-attachments/assets/61cbc600-1a04-452e-881c-6df741a2188f" />
+<img width="1192" height="671" alt="image" src="https://github.com/user-attachments/assets/ba06646a-694c-4f01-b784-17c4c491e05e" />
+
 
 Developers face several challenges when working on collaborative projects:  
 
