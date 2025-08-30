@@ -7,12 +7,12 @@
 ## 📌 Project Name & Short Description  
 **FutureCommit** is an AI-powered developer productivity platform that integrates with GitHub, Slack, Google Workspace, YouTube, and LinkedIn to help developers:  
 
-- 🔹 Automate repo onboarding docs.  
-- 🔹 Generate missing descriptions/readmes.  
-- 🔹 Analyze commit history & auto-generate release notes.  
-- 🔹 Share updates across Slack, LinkedIn, and Drive.  
-- 🔹 Recommend learning resources (YouTube playlists, blogs).  
-- 🔹 Streamline collaboration with auto-generated Google Meet links.  
+- Automate repo onboarding docs.  
+- Generate missing descriptions/readmes.  
+- Analyze commit history & auto-generate release notes.  
+- Share updates across Slack, LinkedIn, and Drive.  
+- Recommend learning resources (YouTube playlists, blogs).  
+- Streamline collaboration with auto-generated Google Meet links.  
 
 Powered by **Descope authentication**, **LangGraph AI pipelines**, and **MongoDB for storage**.  
 
@@ -21,8 +21,8 @@ Powered by **Descope authentication**, **LangGraph AI pipelines**, and **MongoDB
 ## 👥 Team  
 - **Team Name**: CodeLatte  
 - **Members**:  
-  - Siddhartha Chakrabarty  
   - Sneha Jain  
+  - Siddhartha Chakrabarty
 
 ---
 
