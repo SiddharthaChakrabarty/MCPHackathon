@@ -73,22 +73,26 @@ FutureCommit provides an AI-driven ecosystem that simplifies collaboration, docu
 
 ---
 
+
 ## User Onboarding & GitHub Analysis  
 
-<img width="1195" height="670" alt="image" src="https://github.com/user-attachments/assets/b0b11fce-f88f-4c67-b9b7-9c6a46158c46" />
+<img width="1195" height="672" alt="image" src="https://github.com/user-attachments/assets/6720ac58-d15b-47d7-b3e3-1f5906d9e589" />
 
-FutureCommit ensures a smooth and secure onboarding experience for users while integrating with GitHub for repository analysis. The process combines **Descope authentication**, **MongoDB storage**, and **LangGraph pipelines** to deliver automated insights.  
+
+FutureCommit simplifies the onboarding process and integrates deeply with GitHub to provide automated insights and documentation.  
 
 | Step                          | Description |
 |-------------------------------|-------------|
-| **User Authentication**     | Users sign up or sign in via **Descope**, ensuring secure and seamless authentication. |
-| **Data Storage**            | User details (Email ID & GitHub username) are securely stored in **MongoDB** for easy reference and analysis. |
-| **GitHub Integration**      | Using the **Descope GitHub Outbound App**, FutureCommit connects user accounts with GitHub repositories. |
-| **Repo Analysis**           | Once connected, repositories are analyzed by **LangGraph pipelines**, enabling auto-generation of README files, onboarding docs, and release notes. |
+| **User Authentication**     | Users sign up or log in using **Descope**, ensuring secure access. |
+| **Data Storage**            | User details (Email ID & GitHub username) are securely stored in **MongoDB** for identity management. |
+| **GitHub Integration**      | Through the **Descope GitHub Outbound App**, user accounts are linked with GitHub repositories. |
+| **Repo Analysis**           | **LangGraph** analyzes the repositories, identifying missing details and generating onboarding docs, release notes, and README enhancements. |
+| **Auto-Generated Docs**     | The analysis produces **missing descriptions and README files**, which are appended directly to the repositories. |
 
 ---
 
-This flow ensures **secure onboarding, persistent user identity, and intelligent repo insights**, forming the backbone of FutureCommit’s automation pipeline.  
+This flow ensures **secure onboarding, persistent user identity, and intelligent GitHub repo analysis** powered by LangGraph automation.  
+
 
 ---
 
