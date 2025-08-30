@@ -4,6 +4,11 @@
 
 ---
 
+## 🎯 Hackathon Theme / Challenge Addressed  
+**Theme 1: Build a purposeful AI agent**  
+
+---
+
 ## 📌 Project Name & Short Description  
 **FutureCommit** is an AI-powered developer productivity platform that integrates with GitHub, Slack, Google Workspace, YouTube, and LinkedIn to help developers:  
 
@@ -26,8 +31,6 @@ Powered by **Descope authentication**, **LangGraph AI pipelines**, and **MongoDB
 
 ---
 
-## 🎯 Hackathon Theme / Challenge Addressed  
-**Theme 1: Build a purposeful AI agent**  
 
 
 ## How to run it
