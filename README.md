@@ -121,6 +121,30 @@ FutureCommit addresses these issues by automating documentation, improving colla
         This will start the frontend development server, typically on port 5173.
 
 
+---
+
+## Technology Stack  
+
+| Layer / Component       | Technology / Tool |
+|--------------------------|-------------------|
+| **Authentication**       | Descope (Signup/Signin Auth Flow) |
+| **Backend Framework**    | Node.js / Express (for integration handling) |
+| **Database**             | MongoDB (storing user GitHub & email IDs) |
+| **AI / Analysis**        | LangGraph (for generating READMEs, onboarding docs, release notes, blogs) |
+| **Visualization**        | Recharts (commit history & insights visualization) |
+| **Collaboration**        | Slack Outbound App, Google Meet Outbound App |
+| **Knowledge Curation**   | YouTube Outbound App, Google Drive Outbound App, Google Outbound App |
+| **Social Integration**   | LinkedIn Outbound App |
+| **Version Control**      | GitHub (integration via Descope GitHub Outbound App) |
+| **Programming Language** | JavaScript / TypeScript |
+| **API Communication**    | REST APIs & Webhooks |
+| **Hosting**              | (Can be deployed on Vercel / AWS / Render — depending on setup) |
+| **Security**             | Descope (OAuth, secure auth flow) |
+| **Logging & Monitoring** | Integrated via backend + cloud provider logs |
+
+---
+
+This stack ensures **secure authentication, smooth integrations, automated documentation, and centralized collaboration**, making FutureCommit scalable and developer-friendly.
 
 ---
 
