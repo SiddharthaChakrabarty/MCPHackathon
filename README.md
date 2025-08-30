@@ -71,6 +71,27 @@ FutureCommit provides an AI-driven ecosystem that simplifies collaboration, docu
 **FutureCommit ensures projects remain structured, transparent, and collaborative — reducing friction for developers and maximizing productivity.**  
 
 
+---
+
+## 🔑 User Onboarding & GitHub Analysis  
+
+<img width="1195" height="670" alt="image" src="https://github.com/user-attachments/assets/b0b11fce-f88f-4c67-b9b7-9c6a46158c46" />
+
+FutureCommit ensures a smooth and secure onboarding experience for users while integrating with GitHub for repository analysis. The process combines **Descope authentication**, **MongoDB storage**, and **LangGraph pipelines** to deliver automated insights.  
+
+| Step                          | Description |
+|-------------------------------|-------------|
+| **👤 User Authentication**     | Users sign up or sign in via **Descope**, ensuring secure and seamless authentication. |
+| **📦 Data Storage**            | User details (Email ID & GitHub username) are securely stored in **MongoDB** for easy reference and analysis. |
+| **🔗 GitHub Integration**      | Using the **Descope GitHub Outbound App**, FutureCommit connects user accounts with GitHub repositories. |
+| **🤖 Repo Analysis**           | Once connected, repositories are analyzed by **LangGraph pipelines**, enabling auto-generation of README files, onboarding docs, and release notes. |
+
+---
+
+✅ This flow ensures **secure onboarding, persistent user identity, and intelligent repo insights**, forming the backbone of FutureCommit’s automation pipeline.  
+
+---
+
 ## How to run it
 
 1.  **Clone the repository:**
