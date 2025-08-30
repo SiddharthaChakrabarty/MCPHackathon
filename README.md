@@ -1,4 +1,4 @@
-# 🚀 FutureCommit  
+# FutureCommit  
 
 **Commit to your growth, not just your code.**  
 
@@ -31,7 +31,21 @@ Powered by **Descope authentication**, **LangGraph AI pipelines**, and **MongoDB
 
 ---
 
+## ❗ Problem Statement  
 
+<img width="1051" height="587" alt="image" src="https://github.com/user-attachments/assets/61cbc600-1a04-452e-881c-6df741a2188f" />
+
+Developers face several challenges when working on collaborative projects:  
+
+- ⏳ **Wasted time** due to lack of proper descriptions & README files.  
+- 📄 **Unstructured documentation** makes onboarding new members painful.  
+- 💬 **Collaboration & communication issues** arise when juggling multiple tools.  
+- 🔄 **Commit history management** and reverting to older versions is tedious without proper release notes.  
+- 🎓 **Learning the tech stack** for a project is scattered across multiple platforms, slowing down productivity.  
+
+FutureCommit addresses these issues by automating documentation, improving collaboration, and centralizing resources across platforms.
+
+---
 
 ## How to run it
 
@@ -104,3 +118,5 @@ Powered by **Descope authentication**, **LangGraph AI pipelines**, and **MongoDB
         ```
 
         This will start the frontend development server, typically on port 5173.
+
+---
