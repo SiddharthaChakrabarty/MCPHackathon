@@ -4,12 +4,20 @@
 
 ---
 
-## 🎯 Hackathon Theme / Challenge Addressed  
+## 👥 Team  
+- **Team Name**: CodeLatte  
+- **Members**:  
+  - Sneha Jain  
+  - Siddhartha Chakrabarty
+ 
+---
+
+## Hackathon Theme / Challenge Addressed  
 **Theme 1: Build a purposeful AI agent**  
 
 ---
 
-## 📌 Project Name & Short Description  
+## Project Name & Short Description  
 **FutureCommit** is an AI-powered developer productivity platform that integrates with GitHub, Slack, Google Workspace, YouTube, and LinkedIn to help developers:  
 
 - Automate repo onboarding docs.  
@@ -23,25 +31,17 @@ Powered by **Descope authentication**, **LangGraph AI pipelines**, and **MongoDB
 
 ---
 
-## 👥 Team  
-- **Team Name**: CodeLatte  
-- **Members**:  
-  - Sneha Jain  
-  - Siddhartha Chakrabarty
-
----
-
-## ❗ Problem Statement  
+## Problem Statement  
 
 <img width="1051" height="587" alt="image" src="https://github.com/user-attachments/assets/61cbc600-1a04-452e-881c-6df741a2188f" />
 
 Developers face several challenges when working on collaborative projects:  
 
-- ⏳ **Wasted time** due to lack of proper descriptions & README files.  
-- 📄 **Unstructured documentation** makes onboarding new members painful.  
-- 💬 **Collaboration & communication issues** arise when juggling multiple tools.  
-- 🔄 **Commit history management** and reverting to older versions is tedious without proper release notes.  
-- 🎓 **Learning the tech stack** for a project is scattered across multiple platforms, slowing down productivity.  
+- **Wasted time** due to lack of proper descriptions & README files.  
+- **Unstructured documentation** makes onboarding new members painful.  
+- **Collaboration & communication issues** arise when juggling multiple tools.  
+- **Commit history management** and reverting to older versions is tedious without proper release notes.  
+- **Learning the tech stack** for a project is scattered across multiple platforms, slowing down productivity.  
 
 FutureCommit addresses these issues by automating documentation, improving collaboration, and centralizing resources across platforms.
 
@@ -123,7 +123,7 @@ FutureCommit addresses these issues by automating documentation, improving colla
 
 ---
 
-## 📊 Impact and Benefits for Users  
+## Impact and Benefits for Users  
 
 | Impact / Benefit            | Description |
 |------------------------------|-------------|
@@ -136,12 +136,12 @@ FutureCommit addresses these issues by automating documentation, improving colla
 
 ---
 
-✅ **Overall Impact**  
+**Overall Impact**  
 FutureCommit empowers developers and teams by **reducing manual overhead, accelerating onboarding, enhancing collaboration, and curating knowledge resources** — enabling them to focus more on innovation and growth rather than repetitive tasks.  
 
 
 
-## 🔍 Technology Comparison  
+## Technology Comparison  
 
 | Feature / Capability        | **FutureCommit (Our Technology)** | **Traditional Project Tools** | **Basic Automation Scripts** |
 |------------------------------|----------------------------------|-------------------------------|------------------------------|
@@ -154,12 +154,12 @@ FutureCommit empowers developers and teams by **reducing manual overhead, accele
 
 ---
 
-✅ **Why FutureCommit Stands Out**  
+**Why FutureCommit Stands Out**  
 Unlike traditional tools or basic automation, FutureCommit **centralizes project knowledge, automates repetitive workflows, and enhances collaboration** across multiple platforms — all powered by AI.  
 
 ---
 
-## 🚀 Business Relevance & Adoption Model  
+## Business Relevance & Adoption Model  
 
 FutureCommit provides an intelligent and automated way for organizations to improve developer productivity, streamline collaboration, and accelerate onboarding. By integrating with existing developer tools and platforms, it fits seamlessly into various business environments.  
 
@@ -167,15 +167,15 @@ FutureCommit provides an intelligent and automated way for organizations to impr
 
 | Business Integration         | Description |
 |-------------------------------|-------------|
-| 👩‍💻 **Software Development Teams** | Automate documentation, release notes, and onboarding guides, saving time and improving collaboration. |
-| 🏢 **Tech Companies & Startups** | Adopt FutureCommit as a productivity enhancer to reduce developer ramp-up time and improve code quality. |
-| 📊 **Enterprises** | Streamline project collaboration across Slack, Google Workspace, and GitHub to improve communication and efficiency. |
-| 🎓 **EdTech & Coding Bootcamps** | Provide students with structured onboarding docs, curated learning playlists, and blogs on tech stacks, enhancing the learning experience. |
-| 💼 **Consulting Firms** | Use FutureCommit to manage multiple client projects with automated documentation, meeting scheduling, and progress tracking. |
+| **Software Development Teams** | Automate documentation, release notes, and onboarding guides, saving time and improving collaboration. |
+| **Tech Companies & Startups** | Adopt FutureCommit as a productivity enhancer to reduce developer ramp-up time and improve code quality. |
+| **Enterprises** | Streamline project collaboration across Slack, Google Workspace, and GitHub to improve communication and efficiency. |
+| **EdTech & Coding Bootcamps** | Provide students with structured onboarding docs, curated learning playlists, and blogs on tech stacks, enhancing the learning experience. |
+| **Consulting Firms** | Use FutureCommit to manage multiple client projects with automated documentation, meeting scheduling, and progress tracking. |
 
 ---
 
-### 🌐 Why Businesses Should Adopt FutureCommit  
+### Why Businesses Should Adopt FutureCommit  
 
 - **Boost Productivity**: Automates repetitive tasks like writing docs, generating release notes, and resource curation.  
 - **Faster Onboarding**: New team members can quickly get up to speed with auto-generated onboarding documents and curated learning materials.  
