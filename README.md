@@ -128,7 +128,7 @@ FutureCommit addresses these issues by automating documentation, improving colla
 | Layer / Component       | Technology / Tool |
 |--------------------------|-------------------|
 | **Authentication**       | Descope (Signup/Signin Auth Flow) |
-| **Backend Framework**    | Node.js / Express (for integration handling) |
+| **Backend Framework**    | Flask (for integration handling) |
 | **Database**             | MongoDB (storing user GitHub & email IDs) |
 | **AI / Analysis**        | LangGraph (for generating READMEs, onboarding docs, release notes, blogs) |
 | **Visualization**        | Recharts (commit history & insights visualization) |
@@ -136,9 +136,8 @@ FutureCommit addresses these issues by automating documentation, improving colla
 | **Knowledge Curation**   | YouTube Outbound App, Google Drive Outbound App, Google Outbound App |
 | **Social Integration**   | LinkedIn Outbound App |
 | **Version Control**      | GitHub (integration via Descope GitHub Outbound App) |
-| **Programming Language** | JavaScript / TypeScript |
-| **API Communication**    | REST APIs & Webhooks |
-| **Hosting**              | (Can be deployed on Vercel / AWS / Render — depending on setup) |
+| **Programming Language** | JavaScript & Python |
+| **API Communication**    | REST APIs|
 | **Security**             | Descope (OAuth, secure auth flow) |
 | **Logging & Monitoring** | Integrated via backend + cloud provider logs |
 
