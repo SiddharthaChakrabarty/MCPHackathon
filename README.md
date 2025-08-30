@@ -48,6 +48,29 @@ FutureCommit addresses these issues by automating documentation, improving colla
 
 ---
 
+---
+
+## Our Solution  
+
+<img width="1195" height="669" alt="image" src="https://github.com/user-attachments/assets/385d41fe-580e-4645-8835-de760027838a" />
+
+
+FutureCommit provides an AI-driven ecosystem that simplifies collaboration, documentation, and onboarding across projects. By leveraging **LangGraph pipelines** and seamless tool integrations, it addresses the key challenges faced by developers.  
+
+| Feature                     | Description |
+|------------------------------|-------------|
+| **Automated Repo Analysis** | Auto-generates missing descriptions or README files using the LangGraph pipeline, ensuring repositories are always well-documented. |
+| **AI-powered Onboarding**  | Analyzes the repository and creates structured onboarding documents that are automatically appended to READMEs for new contributors. |
+| **AI-based Release Notes** | Generates concise and consistent release notes using LangGraph and appends them to the README for easy reference. |
+| **Seamless Collaboration** | Shares Google Meet links, onboarding docs, and release notes via Google Drive and Slack, streamlining team communication. |
+| **Project Updates**        | Publishes project updates directly to LinkedIn using LangGraph pipelines and the LinkedIn Outbound App, enhancing project visibility. |
+| **Learning Resources**     | Curates and suggests tech stack resources in the form of playlists and collections, ensuring developers have everything they need in one place. |
+
+---
+
+**FutureCommit ensures projects remain structured, transparent, and collaborative — reducing friction for developers and maximizing productivity.**  
+
+
 ## How to run it
 
 1.  **Clone the repository:**
