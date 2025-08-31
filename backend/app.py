@@ -34,7 +34,7 @@ users_collection = db["users"]
 
 genai.configure(api_key=GOOGLE_API_KEY)
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": ["http://localhost:5173"]}}, supports_credentials=True)
+CORS(app, resources={r"/api/*": {"origins": ["*"]}}, supports_credentials=True)
 
 def get_outbound_token(app_id: str, user_id: str):
     """
