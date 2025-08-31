@@ -4,7 +4,7 @@ import { NavLink, Outlet, useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useUser, useSession } from "@descope/react-sdk";
 
-// Context to share repo details across sub-pages
+
 const RepoContext = createContext(null);
 export const useRepo = () => useContext(RepoContext);
 
