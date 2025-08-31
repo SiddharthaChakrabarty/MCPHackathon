@@ -27,7 +27,7 @@ export default function RepoRouter() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch("http://localhost:5000/api/github/repo/details", {
+        const res = await fetch("https://mcp-hackathon-7buc.vercel.app/api/github/repo/details", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ loginId: user.userId, repoName }),
@@ -81,20 +81,20 @@ export default function RepoRouter() {
               </div>
 
               <nav className="flex gap-2">
-                <NavLink to={`/repo/${repoName}/overview`} className={({isActive}) => `px-3 py-1 rounded-md text-sm ${isActive? 'bg-sky-600/20 border border-sky-600 text-sky-200' : 'bg-gray-800/30 border border-gray-700 text-gray-200'}`}>
+                <NavLink to={`/repo/${repoName}/overview`} className={({ isActive }) => `px-3 py-1 rounded-md text-sm ${isActive ? 'bg-sky-600/20 border border-sky-600 text-sky-200' : 'bg-gray-800/30 border border-gray-700 text-gray-200'}`}>
                   Overview
                 </NavLink>
-                <NavLink to={`/repo/${repoName}/commits`} className={({isActive}) => `px-3 py-1 rounded-md text-sm ${isActive? 'bg-sky-600/20 border border-sky-600 text-sky-200' : 'bg-gray-800/30 border border-gray-700 text-gray-200'}`}>
+                <NavLink to={`/repo/${repoName}/commits`} className={({ isActive }) => `px-3 py-1 rounded-md text-sm ${isActive ? 'bg-sky-600/20 border border-sky-600 text-sky-200' : 'bg-gray-800/30 border border-gray-700 text-gray-200'}`}>
                   Commits
                 </NavLink>
-                <NavLink to={`/repo/${repoName}/meet`} className={({isActive}) => `px-3 py-1 rounded-md text-sm ${isActive? 'bg-sky-600/20 border border-sky-600 text-sky-200' : 'bg-gray-800/30 border border-gray-700 text-gray-200'}`}>
+                <NavLink to={`/repo/${repoName}/meet`} className={({ isActive }) => `px-3 py-1 rounded-md text-sm ${isActive ? 'bg-sky-600/20 border border-sky-600 text-sky-200' : 'bg-gray-800/30 border border-gray-700 text-gray-200'}`}>
                   Meet
                 </NavLink>
-                <NavLink to={`/repo/${repoName}/recommendations`} className={({isActive}) => `px-3 py-1 rounded-md text-sm ${isActive? 'bg-sky-600/20 border border-sky-600 text-sky-200' : 'bg-gray-800/30 border border-gray-700 text-gray-200'}`}>
-                    Recommendations
+                <NavLink to={`/repo/${repoName}/recommendations`} className={({ isActive }) => `px-3 py-1 rounded-md text-sm ${isActive ? 'bg-sky-600/20 border border-sky-600 text-sky-200' : 'bg-gray-800/30 border border-gray-700 text-gray-200'}`}>
+                  Recommendations
                 </NavLink>
-                <NavLink to={`/repo/${repoName}/linkedin`} className={({isActive}) => `px-3 py-1 rounded-md text-sm ${isActive? 'bg-sky-600/20 border border-sky-600 text-sky-200' : 'bg-gray-800/30 border border-gray-700 text-gray-200'}`}>
-                    Linkedin
+                <NavLink to={`/repo/${repoName}/linkedin`} className={({ isActive }) => `px-3 py-1 rounded-md text-sm ${isActive ? 'bg-sky-600/20 border border-sky-600 text-sky-200' : 'bg-gray-800/30 border border-gray-700 text-gray-200'}`}>
+                  Linkedin
                 </NavLink>
               </nav>
             </div>
