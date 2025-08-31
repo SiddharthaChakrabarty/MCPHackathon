@@ -170,10 +170,10 @@ export default function Home() {
                                     <div className="mt-3 space-y-2 text-sm">
                                         <div className="flex items-center justify-between"><div>GitHub</div><div className="text-emerald-200">{isGithubConnected ? "Connected" : "Not connected"}</div></div>
                                         <div className="flex items-center justify-between"><div>YouTube</div><div className="text-emerald-200">{isYoutubeConnected ? "Connected" : "Not connected"}</div></div>
-                                        <div className="flex items-center justify-between"><div>Notion</div><div className="text-emerald-200">{isNotionConnected ? "Connected" : "Not connected"}</div></div>
+
                                         <div className="flex items-center justify-between"><div>Google Calendar</div><div className="text-emerald-200">{isGoogleCalendarConnected ? "Connected" : "Not connected"}</div></div>
                                         <div className="flex items-center justify-between"><div>Google Drive</div><div className="text-emerald-200">{isGoogleDriveConnected ? "Connected" : "Not connected"}</div></div>
-                                        <div className="flex items-center justify-between"><div>Spotify</div><div className="text-emerald-200">{isSpotifyConnected ? "Connected" : "Not connected"}</div></div>
+
                                         <div className="flex items-center justify-between"><div>Slack</div><div className="text-emerald-200">{isSlackConnected ? "Connected" : "Not connected"}</div></div>
                                         <div className="flex items-center justify-between"><div>LinkedIn</div><div className="text-emerald-200">{isLinkedinConnected ? "Connected" : "Not connected"}</div></div>
                                     </div>
