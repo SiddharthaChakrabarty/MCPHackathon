@@ -23,7 +23,7 @@ export default function GithubDetails() {
     useEffect(() => {
         if (isAuthenticated && !repos && user?.userId) {
             setLoading(true);
-            fetch("http://localhost:5000/api/github/minimal", {
+            fetch("https://mcp-hackathon-7buc.vercel.app/api/github/minimal", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ loginId: user.userId }),

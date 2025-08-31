@@ -20,7 +20,7 @@ export default function RepoLinkedinProject() {
     }
     setLoadingPreview(true);
     try {
-      const res = await fetch("http://localhost:5000/api/linkedin/preview", {
+      const res = await fetch("https://mcp-hackathon-7buc.vercel.app/api/linkedin/preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ loginId: user.userId, repoName })
@@ -104,7 +104,7 @@ export default function RepoLinkedinProject() {
     const postTextToSend = editedText || preview.postText;
     setLoadingPost(true);
     try {
-      const res = await fetch("http://localhost:5000/api/linkedin/createpost", {
+      const res = await fetch("https://mcp-hackathon-7buc.vercel.app/api/linkedin/createpost", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

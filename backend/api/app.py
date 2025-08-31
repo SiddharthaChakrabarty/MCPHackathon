@@ -875,7 +875,7 @@ def linkedin_create_project_update():
     # 3) fetch repo details (local helper endpoint)
     try:
         local_resp = requests.post(
-            "http://localhost:5000/api/github/repo/details",
+            "https://mcp-hackathon-7buc.vercel.app/api/github/repo/details",
             json={"loginId": login_id, "repoName": repo_name},
             timeout=30
         )
@@ -1165,7 +1165,7 @@ def meet_create_and_invite():
 def fetch_local_repo_details(login_id, repo_name):
     try:
         local_resp = requests.post(
-        "http://localhost:5000/api/github/repo/details",
+        "https://mcp-hackathon-7buc.vercel.app/api/github/repo/details",
         json={"loginId": login_id, "repoName": repo_name},
         timeout=30,
         )

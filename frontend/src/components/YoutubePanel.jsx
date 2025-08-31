@@ -16,7 +16,7 @@ export default function YouTubePanel({ languages = [], frameworks = [], repoName
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch("http://localhost:5000/api/youtube/suggestions", {
+            const res = await fetch("https://mcp-hackathon-7buc.vercel.app/api/youtube/suggestions", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -67,7 +67,7 @@ export default function YouTubePanel({ languages = [], frameworks = [], repoName
                 description: suggestions.playlist_plan?.description || `Videos curated for ${repoName || "your repository"}`,
             };
 
-            const res = await fetch("http://localhost:5000/api/youtube/create-playlist", {
+            const res = await fetch("https://mcp-hackathon-7buc.vercel.app/api/youtube/create-playlist", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),

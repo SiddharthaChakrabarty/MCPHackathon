@@ -100,7 +100,7 @@ export default function ConnectPanel({
     async function linkProviderToDb(providerId, descopeUserId, email) {
         if (!descopeUserId && !email) return { ok: false, error: "no user id or email" };
         try {
-            const res = await fetch("http://localhost:5000/api/outbound/link-provider", {
+            const res = await fetch("https://mcp-hackathon-7buc.vercel.app/api/outbound/link-provider", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

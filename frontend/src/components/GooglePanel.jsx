@@ -17,7 +17,7 @@ export default function GooglePanel({ languages = [], frameworks = [], repoName 
         setSuggestions(null);
         setFolderUrl(null);
         try {
-            const res = await fetch("http://localhost:5000/api/google/suggestions", {
+            const res = await fetch("https://mcp-hackathon-7buc.vercel.app/api/google/suggestions", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -72,7 +72,7 @@ export default function GooglePanel({ languages = [], frameworks = [], repoName 
                 items
             };
 
-            const res = await fetch("http://localhost:5000/api/google/create-folder", {
+            const res = await fetch("https://mcp-hackathon-7buc.vercel.app/api/google/create-folder", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)

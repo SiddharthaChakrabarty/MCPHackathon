@@ -85,7 +85,7 @@ export default function Home() {
     useEffect(() => {
         console.log("Auth state changed, isAuthenticated:", isAuthenticated, "user:", user);
         if (isAuthenticated && user && user.userId) {
-            fetch("http://localhost:5000/api/user/register", {
+            fetch("https://mcp-hackathon-7buc.vercel.app/api/user/register", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

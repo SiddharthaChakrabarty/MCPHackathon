@@ -33,7 +33,7 @@ function RepoReleaseNotes({ repoName, commits }) {
     setLoadingPreview(true);
     setPreviewData(null);
     try {
-      const res = await fetch("http://localhost:5000/api/github/generate-release-notes", {
+      const res = await fetch("https://mcp-hackathon-7buc.vercel.app/api/github/generate-release-notes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ loginId: user?.userId, repoName }),
@@ -64,7 +64,7 @@ function RepoReleaseNotes({ repoName, commits }) {
     }
     setCreating(true);
     try {
-      const res = await fetch("http://localhost:5000/api/github/release-notes/create-doc", {
+      const res = await fetch("https://mcp-hackathon-7buc.vercel.app/api/github/release-notes/create-doc", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

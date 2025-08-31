@@ -41,7 +41,7 @@ export default function RepoOverview() {
     setFeatures([]);
     setIssueResults(null);
     try {
-      const res = await fetch("http://localhost:5000/api/github/features/generate", {
+      const res = await fetch("https://mcp-hackathon-7buc.vercel.app/api/github/features/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -91,7 +91,7 @@ export default function RepoOverview() {
     setCreatingIssues(true);
     setIssueResults(null);
     try {
-      const res = await fetch("http://localhost:5000/api/github/features/create-issues", {
+      const res = await fetch("https://mcp-hackathon-7buc.vercel.app/api/github/features/create-issues", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -129,7 +129,7 @@ export default function RepoOverview() {
     try {
       // Only attempt GET when we have a logged-in user (for Descope token)
       // but the server's /readme/get will work best when loginId present.
-      const res = await fetch("http://localhost:5000/api/github/readme/get", {
+      const res = await fetch("https://mcp-hackathon-7buc.vercel.app/api/github/readme/get", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ loginId: user?.userId, repoName })
@@ -172,7 +172,7 @@ export default function RepoOverview() {
     setSuggestedLoading(true);
     setSuggestedReadme("");
     try {
-      const res = await fetch("http://localhost:5000/api/github/readme/suggest", {
+      const res = await fetch("https://mcp-hackathon-7buc.vercel.app/api/github/readme/suggest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ loginId: user?.userId, repoName })
@@ -198,7 +198,7 @@ export default function RepoOverview() {
     }
     setApplyingReadme(true);
     try {
-      const res = await fetch("http://localhost:5000/api/github/readme/apply", {
+      const res = await fetch("https://mcp-hackathon-7buc.vercel.app/api/github/readme/apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ loginId: user.userId, repoName, content: suggestedReadme, commitMessage: "Add/update README via futurecommit" })
@@ -246,7 +246,7 @@ export default function RepoOverview() {
     setDescLoading(true);
     setDescSuggestion("");
     try {
-      const res = await fetch("http://localhost:5000/api/github/description-suggest", {
+      const res = await fetch("https://mcp-hackathon-7buc.vercel.app/api/github/description-suggest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ loginId: user?.userId, repoName }),
@@ -266,7 +266,7 @@ export default function RepoOverview() {
     if (descLoading || !descSuggestion) return;
     setDescApplyLoading(true);
     try {
-      const res = await fetch("http://localhost:5000/api/github/description-apply", {
+      const res = await fetch("https://mcp-hackathon-7buc.vercel.app/api/github/description-apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ loginId: user?.userId, repoName, description: descSuggestion }),

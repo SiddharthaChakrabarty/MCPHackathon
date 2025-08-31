@@ -53,7 +53,7 @@ export default function RepoMeetAndCollaborators() {
       return;
     }
     try {
-      const res = await fetch("http://localhost:5000/api/slack/create-channel", {
+      const res = await fetch("https://mcp-hackathon-7buc.vercel.app/api/slack/create-channel", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -89,7 +89,7 @@ export default function RepoMeetAndCollaborators() {
     setError(null);
     setMeetInfo(null);
     try {
-      const res = await fetch("http://localhost:5000/api/meet/create-and-invite", {
+      const res = await fetch("https://mcp-hackathon-7buc.vercel.app/api/meet/create-and-invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ loginId: user.userId, repoName }),
@@ -122,7 +122,7 @@ export default function RepoMeetAndCollaborators() {
       setCreatingSlack(true);
       setSlackError(null);
       try {
-        const sres = await fetch("http://localhost:5000/api/slack/create-channel", {
+        const sres = await fetch("https://mcp-hackathon-7buc.vercel.app/api/slack/create-channel", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -158,7 +158,7 @@ export default function RepoMeetAndCollaborators() {
         ...(postToSlack && channelIdToUse ? { slackChannelId: channelIdToUse } : {})
       };
 
-      const res = await fetch("http://localhost:5000/api/google/create-doc-and-share", {
+      const res = await fetch("https://mcp-hackathon-7buc.vercel.app/api/google/create-doc-and-share", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -194,7 +194,7 @@ export default function RepoMeetAndCollaborators() {
     async function load() {
       setLoading(true);
       try {
-        const res = await fetch("http://localhost:5000/api/github/repo/collaborators", {
+        const res = await fetch("https://mcp-hackathon-7buc.vercel.app/api/github/repo/collaborators", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ loginId: user.userId, repoName }),
