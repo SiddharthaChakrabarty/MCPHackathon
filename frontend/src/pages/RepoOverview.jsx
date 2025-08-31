@@ -66,7 +66,6 @@ export default function RepoOverview() {
       toast.success(`Generated ${items.length} feature ideas.`);
     } catch (err) {
       console.error("generate features error", err);
-      toast.error("Failed to generate features: " + (err.message || err));
     } finally {
       setFeaturesLoading(false);
     }
@@ -112,7 +111,6 @@ export default function RepoOverview() {
       toast.success(`Created ${((payload.created || []).length || 0)} issues.`);
     } catch (err) {
       console.error("create issues error", err);
-      toast.error("Failed to create issues: " + (err.message || err));
     } finally {
       setCreatingIssues(false);
     }
@@ -183,7 +181,6 @@ export default function RepoOverview() {
       toast.success("Generated README suggestion.");
     } catch (e) {
       setSuggestedReadme("Failed to generate README suggestion.");
-      toast.error("Failed to generate README suggestion.");
     } finally {
       setSuggestedLoading(false);
     }
@@ -212,7 +209,6 @@ export default function RepoOverview() {
       toast.success(`README applied${payload.html_url ? " — view: " + payload.html_url : ""}`);
     } catch (e) {
       console.error("applyReadme failed", e);
-      toast.error("Failed to apply README: " + (e.message || e));
     } finally {
       setApplyingReadme(false);
     }
@@ -255,8 +251,7 @@ export default function RepoOverview() {
       if (!res.ok) throw new Error(payload?.error || payload?.message || `Server ${res.status}`);
       setDescSuggestion(payload.suggested || "");
     } catch (e) {
-      toast.error("Failed to generate description.");
-      setDescSuggestion("Failed to generate description.");
+      console.log("Failed to generate description.");
     } finally {
       setDescLoading(false);
     }
@@ -280,7 +275,6 @@ export default function RepoOverview() {
       toast.success("Repository description applied.");
     } catch (e) {
       console.error("applyDescription failed", e);
-      toast.error("Failed to apply description.");
     } finally {
       setDescApplyLoading(false);
     }

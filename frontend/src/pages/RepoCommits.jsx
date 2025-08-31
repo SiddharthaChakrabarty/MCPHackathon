@@ -46,7 +46,6 @@ function RepoReleaseNotes({ repoName, commits }) {
       toast.success("Preview generated.");
     } catch (err) {
       console.error("generate preview failed", err);
-      toast.error("Failed to generate preview.");
     } finally {
       setLoadingPreview(false);
     }
