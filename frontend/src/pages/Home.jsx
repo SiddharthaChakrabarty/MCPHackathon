@@ -103,9 +103,7 @@ export default function Home() {
     // Quick status booleans for UI
     const isGithubConnected = !!(connectedMap.github === "connected" || connectedMap.github === "pending");
     const isYoutubeConnected = !!(connectedMap.youtube === "connected" || connectedMap.youtube === "pending");
-    const isNotionConnected = !!(connectedMap.notion === "connected" || connectedMap.notion === "pending");
     const isGoogleCalendarConnected = !!(connectedMap["google-calendar"] === "connected" || connectedMap["google-calendar"] === "pending");
-    const isSpotifyConnected = !!(connectedMap.spotify === "connected" || connectedMap.spotify === "pending");
     const isSlackConnected = !!(connectedMap.slack === "connected" || connectedMap.slack === "pending");
     const isLinkedinConnected = !!(connectedMap.linkedin === "connected" || connectedMap.linkedin === "pending");
     const isGoogleDriveConnected = !!(connectedMap["google-drive"] === "connected" || connectedMap["google-drive"] === "pending");
