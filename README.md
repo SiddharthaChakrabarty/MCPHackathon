@@ -168,7 +168,7 @@ By leveraging **LangGraph pipelines** and seamless tool integrations, it address
 
 | Feature                     | Description |
 |------------------------------|-------------|
-| **Automated Repo Analysis** | Auto-generates missing descriptions or README files using the LangGraph pipeline, and creates **issues for future features** to keep repos up to date. |
+| **Automated Repo Analysis** | Auto-generates missing descriptions or README files using the LangGraph pipeline, and creates **GitHub issues for future features** to keep repos up to date. |
 | **AI-powered Onboarding**  | Analyzes the repository and creates structured onboarding documents that are automatically appended to READMEs for new contributors. |
 | **AI-based Release Notes** | Generates concise, consistent release notes and appends them directly to the README for easy reference. |
 | **Seamless Collaboration** | Shares Google Meet links, onboarding docs, and release notes via Google Drive and Slack, streamlining team communication. |
