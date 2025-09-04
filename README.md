@@ -4,6 +4,46 @@
 
 ---
 
+# FutureCommit  
+
+**Commit to your growth, not just your code.**  
+
+---
+
+## Index  
+
+1. [Team](#team)
+2. [Demo Video](#demo-video)
+3. [Pitch Deck](#pitch-deck)  
+4. [Hackathon Theme / Challenge Addressed](#hackathon-theme--challenge-addressed)  
+5. [Project Name & Short Description](#project-name--short-description)  
+6. [How to Run It](#how-to-run-it)  
+7. [Problem Statement](#problem-statement)  
+8. [Our Solution](#our-solution)  
+   - [Features](#features)  
+9. [User Onboarding & GitHub Analysis](#user-onboarding--github-analysis)  
+10. [AI-Powered Onboarding & Release Notes](#ai-powered-onboarding--release-notes)  
+11. [Seamless Collaboration & Project Update](#seamless-collaboration--project-update)  
+12. [Learning Resources](#learning-resources)  
+13. [Tech Stack](#tech-stack)  
+14. [Descope Integrations](#descope-integrations)  
+15. [What We'd Do With More Time](#what-wed-do-with-more-time)  
+16. [Impact and Benefits for Users](#impact-and-benefits-for-users)  
+17. [Technology Comparison](#technology-comparison)  
+18. [Business Relevance & Adoption Model](#business-relevance--adoption-model)  
+
+---
+
+## Demo Video  
+[Watch the Demo Video]()
+
+---
+
+## Pitch Deck  
+[View the Pitch Deck (PPT)](https://docs.google.com/presentation/d/1W0eYCqcEFejYqQtH3SyegxkEeUaPx_5AEg7e7j2ME1U/edit?usp=sharing)  
+
+---
+
 ## Team  
 - **Team Name**: CodeLatte  
 - **Members**:  
