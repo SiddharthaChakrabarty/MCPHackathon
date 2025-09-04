@@ -184,7 +184,7 @@ By leveraging **LangGraph pipelines** and seamless tool integrations, it address
 
 ## User Onboarding & GitHub Analysis  
 
-<img width="1195" height="672" alt="image" src="https://github.com/user-attachments/assets/fe3620e4-9dac-42ed-ab84-996334ee56f1" />
+<img width="1195" height="672" alt="image" src="https://github.com/user-attachments/assets/549fd060-bfde-465d-8b0b-62c2be7a3a99" />
 
 FutureCommit simplifies the onboarding process and integrates deeply with GitHub to provide automated insights, documentation, and issue creation.  
 
