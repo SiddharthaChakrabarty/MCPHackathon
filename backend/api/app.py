@@ -440,12 +440,14 @@ def youtube_create_playlist():
 
     if not login_id or not video_ids:
         return jsonify({'error': 'loginId and videoIds are required'}), 400
+    
 
 
     # get user OAuth access token from Descope outbound app
     try:
         token = get_outbound_token(YOUTUBE_OUTBOUND_APP_ID, login_id)
         access_token = token['token']["accessToken"]
+        print(f"Retrieved YouTube access token: {access_token}")
     except Exception as e:
         return jsonify({'error': 'failed to retrieve youtube token', 'detail': str(e)}), 500
 
@@ -462,6 +464,7 @@ def youtube_create_playlist():
     'status': {'privacyStatus': 'private'}
     }
     r = requests.post(create_url, headers=headers, json=body_payload)
+    print(f"Create playlist response: {r.status_code} {r.text}")
     if r.status_code not in (200, 201):
         return jsonify({'error': 'failed to create playlist', 'detail': r.text}), 500
     playlist = r.json()
