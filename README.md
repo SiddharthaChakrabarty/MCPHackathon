@@ -4,12 +4,6 @@
 
 ---
 
-# FutureCommit  
-
-**Commit to your growth, not just your code.**  
-
----
-
 ## Index  
 
 1. [Team](#team)
