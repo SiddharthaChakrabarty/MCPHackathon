@@ -123,7 +123,6 @@ FutureCommit addresses these issues by automating documentation, improving colla
 
 ---
 
-
 ## Our Solution  
 
 <img width="1195" height="669" alt="image" src="https://github.com/user-attachments/assets/2e91a090-36ac-4e2e-96ad-5fa5e8b9e564" />
@@ -274,6 +273,24 @@ This integration ensures **frictionless authentication and end-to-end automation
 
 ---
 
+## What We'd Do With More Time  
+
+FutureCommit was built within limited hackathon time, but with more time we would:  
+
+- **Deeper GitHub Insights**  
+  Expand LangGraph analysis to include code quality checks, dependency scanning, and vulnerability detection.  
+
+- **Customizable AI Agents**  
+  Allow teams to configure AI pipelines for specific needs like bug triaging, PR reviews, or automated testing recommendations.  
+
+- **Advanced Release Workflows**  
+  Introduce version tagging, changelog visualization, and multi-repo release coordination.  
+
+- **Marketplace & Integrations**  
+  Publish FutureCommit as a GitHub Marketplace App and extend outbound integrations to Jira, Confluence, and Microsoft Teams.  
+
+---
+
 ## Impact and Benefits for Users  
 
 | Impact / Benefit            | Description |
@@ -290,7 +307,7 @@ This integration ensures **frictionless authentication and end-to-end automation
 **Overall Impact**  
 FutureCommit empowers developers and teams by **reducing manual overhead, accelerating onboarding, enhancing collaboration, and curating knowledge resources** — enabling them to focus more on innovation and growth rather than repetitive tasks.  
 
-
+---
 
 ## Technology Comparison  
 
