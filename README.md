@@ -126,19 +126,21 @@ FutureCommit addresses these issues by automating documentation, improving colla
 
 ## Our Solution  
 
-<img width="1195" height="669" alt="image" src="https://github.com/user-attachments/assets/385d41fe-580e-4645-8835-de760027838a" />
+<img width="1195" height="669" alt="image" src="https://github.com/user-attachments/assets/2e91a090-36ac-4e2e-96ad-5fa5e8b9e564" />
 
+FutureCommit provides an AI-driven ecosystem that simplifies collaboration, documentation, and onboarding across projects.  
+By leveraging **LangGraph pipelines** and seamless tool integrations, it addresses the key challenges faced by developers.  
 
-FutureCommit provides an AI-driven ecosystem that simplifies collaboration, documentation, and onboarding across projects. By leveraging **LangGraph pipelines** and seamless tool integrations, it addresses the key challenges faced by developers.  
+## Features  
 
 | Feature                     | Description |
 |------------------------------|-------------|
-| **Automated Repo Analysis** | Auto-generates missing descriptions or README files using the LangGraph pipeline, ensuring repositories are always well-documented. |
+| **Automated Repo Analysis** | Auto-generates missing descriptions or README files using the LangGraph pipeline, and creates **issues for future features** to keep repos up to date. |
 | **AI-powered Onboarding**  | Analyzes the repository and creates structured onboarding documents that are automatically appended to READMEs for new contributors. |
-| **AI-based Release Notes** | Generates concise and consistent release notes using LangGraph and appends them to the README for easy reference. |
+| **AI-based Release Notes** | Generates concise, consistent release notes and appends them directly to the README for easy reference. |
 | **Seamless Collaboration** | Shares Google Meet links, onboarding docs, and release notes via Google Drive and Slack, streamlining team communication. |
-| **Project Updates**        | Publishes project updates directly to LinkedIn using LangGraph pipelines and the LinkedIn Outbound App, enhancing project visibility. |
-| **Learning Resources**     | Curates and suggests tech stack resources in the form of playlists and collections, ensuring developers have everything they need in one place. |
+| **Project Updates**        | Publishes project updates to LinkedIn using LangGraph pipelines and the LinkedIn Outbound App, boosting project visibility. |
+| **Learning Resources**     | Curates and suggests relevant tech stack resources in the form of playlists and collections, ensuring developers have everything they need in one place. |
 
 ---
 
@@ -149,17 +151,17 @@ FutureCommit provides an AI-driven ecosystem that simplifies collaboration, docu
 
 ## User Onboarding & GitHub Analysis  
 
-<img width="1195" height="672" alt="image" src="https://github.com/user-attachments/assets/6720ac58-d15b-47d7-b3e3-1f5906d9e589" />
+<img width="1195" height="672" alt="image" src="https://github.com/user-attachments/assets/fe3620e4-9dac-42ed-ab84-996334ee56f1" />
 
-FutureCommit simplifies the onboarding process and integrates deeply with GitHub to provide automated insights and documentation.  
+FutureCommit simplifies the onboarding process and integrates deeply with GitHub to provide automated insights, documentation, and issue creation.  
 
-| Step                          | Description |
-|-------------------------------|-------------|
-| **User Authentication**     | Users sign up or log in using **Descope**, ensuring secure access. |
-| **Data Storage**            | User details (Email ID & GitHub username) are securely stored in **MongoDB** for identity management. |
-| **GitHub Integration**      | Through the **Descope GitHub Outbound App**, user accounts are linked with GitHub repositories. |
-| **Repo Analysis**           | **LangGraph** analyzes the repositories, identifying missing descriptions & READMEs. |
-| **Auto-Generated Docs**     | The analysis produces **missing descriptions and README files**, which are appended directly to the repositories. |
+| Step                   | Description |
+|------------------------|-------------|
+| **User Authentication** | Users sign up or log in using **Descope**, ensuring secure access. |
+| **Data Storage**        | User details (Email ID & GitHub username) are securely stored in **MongoDB** for identity management. |
+| **GitHub Integration**  | Through the **Descope GitHub Outbound App**, user accounts are linked with GitHub repositories. |
+| **Repo Analysis**       | **LangGraph** analyzes repositories, detecting missing descriptions, READMEs, and potential improvements. |
+| **Auto-Docs & Issues**  | Missing descriptions and README files are generated, and **issues for future features & improvements** are automatically created in GitHub. |
 
 ---
 
