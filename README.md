@@ -28,6 +28,14 @@
 
 ---
 
+## Team  
+- **Team Name**: CodeLatte  
+- **Members**:  
+  - Sneha Jain  
+  - Siddhartha Chakrabarty
+ 
+---
+
 ## Demo Video  
 [Watch the Demo Video]()
 
@@ -36,14 +44,6 @@
 ## Pitch Deck  
 [View the Pitch Deck (PPT)](https://docs.google.com/presentation/d/1W0eYCqcEFejYqQtH3SyegxkEeUaPx_5AEg7e7j2ME1U/edit?usp=sharing)  
 
----
-
-## Team  
-- **Team Name**: CodeLatte  
-- **Members**:  
-  - Sneha Jain  
-  - Siddhartha Chakrabarty
- 
 ---
 
 ## Hackathon Theme / Challenge Addressed  
