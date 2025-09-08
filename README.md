@@ -37,7 +37,7 @@
 ---
 
 ## Demo Video  
-[Watch the Demo Video]()
+[Watch the Demo Video](https://youtu.be/2gjLM4xc5nc)
 
 ---
 
@@ -286,6 +286,8 @@ This stack ensures **secure authentication, intelligent AI-powered insights, and
 ## Descope Integrations  
 
 <img width="1195" height="672" alt="image" src="https://github.com/user-attachments/assets/fd6693b3-45a9-4798-b5d7-6d8e78bef2d8" />
+
+<img width="1919" height="909" alt="image" src="https://github.com/user-attachments/assets/833bd4fd-0a45-4cab-b5c2-401048504098" />
 
 Descope powers authentication and seamless outbound integrations, enabling FutureCommit to automate tasks across platforms.  
 
